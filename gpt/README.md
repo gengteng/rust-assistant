@@ -5,7 +5,7 @@
 # Basic
 
 * Name: `Rust Assistant`.
-* Description: `A Rust coding assistant`.
+* Description: `A Rust coding assistant.`.
 * Instructions: 
 
 ```text
