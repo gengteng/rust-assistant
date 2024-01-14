@@ -1,10 +1,22 @@
-[package]
-name = "rust-assistant"
-version = "0.1.0"
-authors = ["GengTeng <me@gteng.org>"]
-edition = "2021"
-license = "MIT"
-description = "Rust Assistant Service"
-publish = false
+[workspace]
+members = ["crates/*"]
+resolver = "2"
 
-[dependencies]
+[workspace.metadata.release]
+shared-version = true
+
+[workspace.dependencies]
+serde = "1.0.193"
+thiserror = "1.0.51"
+anyhow = "1.0.76"
+tokio = "1.35.1"
+#[package]
+#name = "rust-assistant"
+#version = "0.1.0"
+#authors = ["GengTeng <me@gteng.org>"]
+#edition = "2021"
+#license = "MIT"
+#description = "Rust Assistant Service"
+#
+#
+#[dependencies]
