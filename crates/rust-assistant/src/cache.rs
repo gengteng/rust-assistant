@@ -1,5 +1,4 @@
 use crate::{CrateVersion, Directory};
-use bytes::Bytes;
 use lru::LruCache;
 use parking_lot::Mutex;
 use std::collections::BTreeSet;
@@ -11,14 +10,14 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Crate {
-    crate_version: CrateVersion,
-    data: Bytes,
+    pub crate_version: CrateVersion,
+    pub data: Arc<[u8]>,
 }
 
 impl<C, D> From<(C, D)> for Crate
 where
     C: Into<CrateVersion>,
-    D: Into<Bytes>,
+    D: Into<Arc<[u8]>>,
 {
     fn from((c, d): (C, D)) -> Self {
         Crate {
@@ -141,7 +140,7 @@ impl Crate {
 
             let mut components = path.components();
             if let Some(path) = components
-                .next() // 获取第一个组件
+                .next()
                 .map(|comp| PathBuf::from(comp.as_os_str()))
             {
                 if components.next().is_none() {
@@ -158,7 +157,7 @@ impl Crate {
 
 #[derive(Clone)]
 pub struct CrateCache {
-    lru: Arc<Mutex<LruCache<CrateVersion, Bytes>>>,
+    lru: Arc<Mutex<LruCache<CrateVersion, Arc<[u8]>>>>,
 }
 
 impl Default for CrateCache {
@@ -176,7 +175,7 @@ impl CrateCache {
     }
 
     /// Get raw crate file data
-    pub fn get_data(&self, crate_version: &CrateVersion) -> Option<Bytes> {
+    pub fn get_data(&self, crate_version: &CrateVersion) -> Option<Arc<[u8]>> {
         self.lru.lock().get(crate_version).cloned()
     }
 
@@ -194,8 +193,8 @@ impl CrateCache {
     pub fn set_data(
         &self,
         crate_version: impl Into<CrateVersion>,
-        data: impl Into<Bytes>,
-    ) -> Option<Bytes> {
+        data: impl Into<Arc<[u8]>>,
+    ) -> Option<Arc<[u8]>> {
         self.lru.lock().put(crate_version.into(), data.into())
     }
 }

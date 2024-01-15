@@ -55,7 +55,9 @@ impl RustAssistant {
         crate_version_path: CrateVersionPath,
     ) -> anyhow::Result<Option<Directory>> {
         let crate_ = self.get_crate(&crate_version_path.crate_version).await?;
-        let path = PathBuf::from(crate_version_path.path.as_ref());
-        Ok(tokio::task::spawn_blocking(move || crate_.read_directory(path)).await??)
+        Ok(tokio::task::spawn_blocking(move || {
+            crate_.read_directory(crate_version_path.path.as_ref())
+        })
+        .await??)
     }
 }

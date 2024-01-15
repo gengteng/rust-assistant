@@ -56,6 +56,12 @@ pub struct Directory {
     pub directories: BTreeSet<PathBuf>,
 }
 
+impl Directory {
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty() && self.directories.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,7 +91,7 @@ mod tests {
 
         let files = crate_.read_directory(".")?;
         assert!(files.is_some());
-        // println!("{:#?}", files.unwrap());
+        println!("{:#?}", files.unwrap());
 
         let lib_rs_content = crate_.get_file("src/lib.rs")?;
         assert!(lib_rs_content.is_some());

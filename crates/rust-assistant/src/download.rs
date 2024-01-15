@@ -1,6 +1,7 @@
 use crate::CrateVersion;
-use bytes::Bytes;
 use reqwest::{Client, ClientBuilder};
+use std::io::Read;
+use std::sync::Arc;
 
 #[derive(Debug, Default, Clone)]
 pub struct CrateDownloader {
@@ -24,7 +25,10 @@ impl TryFrom<ClientBuilder> for CrateDownloader {
 }
 
 impl CrateDownloader {
-    pub async fn download_crate_file(&self, crate_version: &CrateVersion) -> anyhow::Result<Bytes> {
+    pub async fn download_crate_file(
+        &self,
+        crate_version: &CrateVersion,
+    ) -> anyhow::Result<Arc<[u8]>> {
         let url = format!(
             "https://static.crates.io/crates/{}/{}-{}.crate",
             crate_version.krate, crate_version.krate, crate_version.version
@@ -36,6 +40,17 @@ impl CrateDownloader {
             anyhow::bail!("Http status is not 200: {}", resp.text().await?);
         }
 
-        Ok(resp.bytes().await?)
+        let compressed_data = resp.bytes().await?;
+
+        let data = tokio::task::spawn_blocking(move || {
+            let mut dc = flate2::bufread::GzDecoder::new(compressed_data.as_ref());
+            let mut tar_data = Vec::new();
+            dc.read_to_end(&mut tar_data)?;
+
+            Ok::<_, anyhow::Error>(tar_data)
+        })
+        .await??;
+
+        Ok(Arc::from(data))
     }
 }
