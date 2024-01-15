@@ -62,6 +62,10 @@ async fn read_crate_root_directory(
     }
 }
 
+async fn privacy_policy() -> impl IntoResponse {
+    include_str!("../../../doc/privacy-policy.md")
+}
+
 pub fn router() -> Router {
     let directory_app = Router::new()
         .route("/", get(read_crate_root_directory))
@@ -71,5 +75,6 @@ pub fn router() -> Router {
         .route("/api/summary/:crate/:version/*path", get(get_file_summary))
         .route("/api/file/:crate/:version/*path", get(get_file_content))
         .nest("/api/directory/:crate/:version", directory_app)
+        .route("/privacy-policy", get(privacy_policy))
         .with_state(RustAssistant::default())
 }
