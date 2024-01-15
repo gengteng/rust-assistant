@@ -2,9 +2,9 @@ use crate::cache::CrateCache;
 use crate::download::CrateDownloader;
 
 #[derive(Clone, Default)]
-pub struct RustAssistantApplication {
+pub struct RustAssistant {
     downloader: CrateDownloader,
     cache: CrateCache,
 }
 
-impl RustAssistantApplication {}
+impl RustAssistant {}

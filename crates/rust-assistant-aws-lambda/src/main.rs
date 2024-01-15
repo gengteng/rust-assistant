@@ -6,5 +6,5 @@ async fn main() -> Result<(), lambda_http::Error> {
         .without_time()
         .init();
 
-    lambda_http::run(rust_assistant::router()).await
+    lambda_http::run(rust_assistant::axum::router()).await
 }

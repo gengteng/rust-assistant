@@ -7,7 +7,6 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = "0.7.4"
 serde = { workspace = true, features = ["derive", "rc"] }
 lru = "0.12.1"
 reqwest = { version = "0.11.23", features = ["rustls-tls", "json"], default-features = false }
@@ -16,7 +15,14 @@ proc-macro2 = {  version = "1.0.76", features = ["span-locations"] }
 tar = "0.4.40"
 flate2 = "1.0.28"
 anyhow.workspace = true
-tokio.workspace = true
 bytes = "1.5.0"
 parking_lot = "0.12.1"
+
+axum = { version = "0.7.4", optional = true}
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
+
+[features]
+axum = ["dep:axum"]
 
