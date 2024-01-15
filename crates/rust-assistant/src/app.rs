@@ -1,6 +1,7 @@
 use crate::cache::{Crate, CrateCache};
 use crate::download::CrateDownloader;
-use crate::{CrateVersion, CrateVersionPath, FileLineRange};
+use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 #[derive(Clone, Default)]
@@ -44,8 +45,17 @@ impl RustAssistant {
     pub async fn get_file_list(
         &self,
         crate_version: &CrateVersion,
-    ) -> anyhow::Result<Option<Vec<PathBuf>>> {
+    ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
         let crate_ = self.get_crate(crate_version).await?;
-        Ok(tokio::task::spawn_blocking(move || crate_.get_file_list()).await??)
+        Ok(tokio::task::spawn_blocking(move || crate_.get_all_file_list(..)).await??)
+    }
+
+    pub async fn read_directory(
+        &self,
+        crate_version_path: CrateVersionPath,
+    ) -> anyhow::Result<Option<Directory>> {
+        let crate_ = self.get_crate(&crate_version_path.crate_version).await?;
+        let path = PathBuf::from(crate_version_path.path.as_ref());
+        Ok(tokio::task::spawn_blocking(move || crate_.read_directory(path)).await??)
     }
 }

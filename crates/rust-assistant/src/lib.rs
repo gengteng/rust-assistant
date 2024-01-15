@@ -6,6 +6,7 @@ pub mod cache;
 pub mod download;
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -49,6 +50,12 @@ pub struct FileLineRange {
     pub end: Option<NonZeroU64>,
 }
 
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct Directory {
+    pub files: BTreeSet<PathBuf>,
+    pub directories: BTreeSet<PathBuf>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,11 +63,10 @@ mod tests {
     use crate::download::CrateDownloader;
     use std::io::Read;
     use std::num::{NonZeroU64, NonZeroUsize};
-    use std::time::Instant;
 
     #[tokio::test]
     async fn download_and_read() -> anyhow::Result<()> {
-        let start = Instant::now();
+        // let start = Instant::now();
         let crate_version = CrateVersion::from(("tokio", "1.35.1"));
         let downloader = CrateDownloader::default();
         let data = downloader.download_crate_file(&crate_version).await?;
@@ -73,15 +79,21 @@ mod tests {
         assert!(old.is_none());
 
         let crate_ = cache.get(crate_version).expect("get crate");
-        let files = crate_.get_file_list()?;
+        let files = crate_.get_all_file_list(..)?;
         assert!(files.is_some());
+        // println!("{:#?}", files.unwrap());
+
+        let files = crate_.read_directory(".")?;
+        assert!(files.is_some());
+        // println!("{:#?}", files.unwrap());
 
         let lib_rs_content = crate_.get_file("src/lib.rs")?;
         assert!(lib_rs_content.is_some());
         let lib_rs_range_content =
             crate_.get_file_by_range("src/lib.rs", None, NonZeroU64::new(27).unwrap())?;
-        println!("{}", lib_rs_range_content.expect("lib.rs"));
-        println!("Elapsed: {}µs", start.elapsed().as_micros());
+        assert!(lib_rs_range_content.is_some());
+        // println!("{}", lib_rs_range_content.expect("lib.rs"));
+        // println!("Elapsed: {}µs", start.elapsed().as_micros());
         Ok(())
     }
 }

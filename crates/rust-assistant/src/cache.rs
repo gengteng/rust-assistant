@@ -1,10 +1,12 @@
-use crate::CrateVersion;
+use crate::{CrateVersion, Directory};
 use bytes::Bytes;
 use lru::LruCache;
 use parking_lot::Mutex;
+use std::collections::BTreeSet;
 use std::io::Read;
 use std::num::{NonZeroU64, NonZeroUsize};
-use std::path::PathBuf;
+use std::ops::RangeBounds;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -91,12 +93,18 @@ impl Crate {
     }
 
     /// List all files in a crate
-    pub fn get_file_list(&self) -> anyhow::Result<Option<Vec<PathBuf>>> {
+    pub fn get_all_file_list(
+        &self,
+        range: impl RangeBounds<usize>,
+    ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
         let mut archive = tar::Archive::new(self.data.as_ref());
         let root_dir = self.crate_version.root_dir();
         let entries = archive.entries()?;
-        let mut vec = Vec::new();
-        for entry in entries {
+        let mut list = BTreeSet::new();
+        for (i, entry) in entries.enumerate() {
+            if !range.contains(&i) {
+                continue;
+            }
             let Ok(entry) = entry else {
                 continue;
             };
@@ -108,9 +116,43 @@ impl Crate {
             let Ok(path) = path.strip_prefix(&root_dir) else {
                 continue;
             };
-            vec.push(path.to_path_buf());
+            list.insert(path.to_path_buf());
         }
-        Ok(Some(vec))
+        Ok(Some(list))
+    }
+
+    pub fn read_directory<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<Option<Directory>> {
+        let mut archive = tar::Archive::new(self.data.as_ref());
+        let base_dir = self.crate_version.root_dir().join(path);
+        let entries = archive.entries()?;
+        let mut dir = Directory::default();
+        for entry in entries {
+            let Ok(entry) = entry else {
+                continue;
+            };
+
+            let Ok(path) = entry.path() else {
+                continue;
+            };
+
+            let Ok(path) = path.strip_prefix(&base_dir) else {
+                continue;
+            };
+
+            let mut components = path.components();
+            if let Some(path) = components
+                .next() // 获取第一个组件
+                .map(|comp| PathBuf::from(comp.as_os_str()))
+            {
+                if components.next().is_none() {
+                    dir.files.insert(path.to_path_buf());
+                } else {
+                    dir.directories.insert(path.to_path_buf());
+                }
+            }
+        }
+
+        Ok(Some(dir))
     }
 }
 
