@@ -28,7 +28,13 @@ async fn read_crate_directory(
 ) -> impl IntoResponse {
     match state.read_directory(path).await {
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Ok(Some(directory)) => Json(directory).into_response(),
+        Ok(Some(directory)) => {
+            if directory.is_empty() {
+                (StatusCode::BAD_REQUEST, "Not a directory").into_response()
+            } else {
+                Json(directory).into_response()
+            }
+        }
         Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
     }
 }
