@@ -67,7 +67,6 @@ mod tests {
     use super::*;
     use crate::cache::CrateCache;
     use crate::download::CrateDownloader;
-    use std::io::Read;
     use std::num::{NonZeroU64, NonZeroUsize};
 
     #[tokio::test]
@@ -75,12 +74,8 @@ mod tests {
         // let start = Instant::now();
         let crate_version = CrateVersion::from(("tokio", "1.35.1"));
         let downloader = CrateDownloader::default();
-        let data = downloader.download_crate_file(&crate_version).await?;
+        let tar_data = downloader.download_crate_file(&crate_version).await?;
         let cache = CrateCache::new(NonZeroUsize::new(1024).unwrap());
-        let mut dc = flate2::bufread::GzDecoder::new(data.as_ref());
-        let mut tar_data = Vec::new();
-        dc.read_to_end(&mut tar_data).expect("decompress gzip data");
-
         let old = cache.set_data(crate_version.clone(), tar_data);
         assert!(old.is_none());
 
