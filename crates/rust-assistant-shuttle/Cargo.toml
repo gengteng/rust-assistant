@@ -1,0 +1,10 @@
+[package]
+name = "rust-assistant-shuttle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shuttle-axum = "0.36.0"
+shuttle-runtime = "0.36.0"
+
+rust-assistant = { path = "../rust-assistant", features = ["axum"]}
