@@ -11,4 +11,12 @@ axum = "0.7.4"
 serde = { workspace = true, features = ["derive", "rc"] }
 lru = "0.12.1"
 reqwest = { version = "0.11.23", features = ["rustls-tls", "json"], default-features = false }
+syn = { version = "2.0.48", features = ["full"] }
+proc-macro2 = {  version = "1.0.76", features = ["span-locations"] }
+tar = "0.4.40"
+flate2 = "1.0.28"
+anyhow.workspace = true
+tokio.workspace = true
+bytes = "1.5.0"
+parking_lot = "0.12.1"
 
