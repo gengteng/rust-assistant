@@ -1,4 +1,4 @@
-use crate::cache::{Crate, CrateCache};
+use crate::cache::{CrateCache, CrateTar};
 use crate::download::CrateDownloader;
 use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange};
 use std::collections::BTreeSet;
@@ -17,14 +17,14 @@ impl From<(CrateDownloader, CrateCache)> for RustAssistant {
 }
 
 impl RustAssistant {
-    pub async fn get_crate(&self, crate_version: &CrateVersion) -> anyhow::Result<Crate> {
+    pub async fn get_crate_tar(&self, crate_version: &CrateVersion) -> anyhow::Result<CrateTar> {
         Ok(match self.cache.get(crate_version.clone()) {
             None => {
                 let data = self.downloader.download_crate_file(crate_version).await?;
                 self.cache.set_data(crate_version.clone(), data.clone());
-                Crate::from((crate_version.clone(), data))
+                CrateTar::from((crate_version.clone(), data))
             }
-            Some(crate_) => crate_,
+            Some(crate_tar) => crate_tar,
         })
     }
     pub async fn get_file_content(
@@ -32,11 +32,13 @@ impl RustAssistant {
         crate_version_path: &CrateVersionPath,
         FileLineRange { start, end }: FileLineRange,
     ) -> anyhow::Result<Option<String>> {
-        let crate_ = self.get_crate(&crate_version_path.crate_version).await?;
+        let crate_tar = self
+            .get_crate_tar(&crate_version_path.crate_version)
+            .await?;
 
         let path = crate_version_path.path.clone();
         let file = tokio::task::spawn_blocking(move || {
-            crate_.get_file_by_range(path.as_ref(), start, end)
+            crate_tar.get_file_by_range(path.as_ref(), start, end)
         })
         .await??;
         Ok(file)
@@ -46,17 +48,19 @@ impl RustAssistant {
         &self,
         crate_version: &CrateVersion,
     ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
-        let crate_ = self.get_crate(crate_version).await?;
-        Ok(tokio::task::spawn_blocking(move || crate_.get_all_file_list(..)).await??)
+        let crate_tar = self.get_crate_tar(crate_version).await?;
+        Ok(tokio::task::spawn_blocking(move || crate_tar.get_all_file_list(..)).await??)
     }
 
     pub async fn read_directory(
         &self,
         crate_version_path: CrateVersionPath,
     ) -> anyhow::Result<Option<Directory>> {
-        let crate_ = self.get_crate(&crate_version_path.crate_version).await?;
+        let crate_tar = self
+            .get_crate_tar(&crate_version_path.crate_version)
+            .await?;
         Ok(tokio::task::spawn_blocking(move || {
-            crate_.read_directory(crate_version_path.path.as_ref())
+            crate_tar.read_directory(crate_version_path.path.as_ref())
         })
         .await??)
     }
