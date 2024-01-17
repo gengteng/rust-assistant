@@ -179,8 +179,8 @@ pub struct CrateFileContent {
 #[derive(Debug, Clone)]
 pub struct Crate {
     data: Bytes,
-    files_index: FnvHashMap<PathBuf, CrateFileDataDesc>,
-    directories_index: FnvHashMap<PathBuf, Directory>,
+    files_index: Arc<FnvHashMap<PathBuf, CrateFileDataDesc>>,
+    directories_index: Arc<FnvHashMap<PathBuf, Directory>>,
 }
 
 impl Crate {
@@ -373,8 +373,8 @@ impl TryFrom<CrateTar> for Crate {
 
         Ok(Self {
             data: data.freeze(),
-            files_index,
-            directories_index,
+            files_index: Arc::new(files_index),
+            directories_index: Arc::new(directories_index),
         })
     }
 }
