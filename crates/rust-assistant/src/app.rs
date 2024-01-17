@@ -24,7 +24,7 @@ impl RustAssistant {
                     tokio::task::spawn_blocking(move || Crate::try_from(crate_tar)).await??;
                 self.cache.set_crate(crate_version.clone(), krate);
                 self.cache
-                    .get_crate(&crate_version)
+                    .get_crate(crate_version)
                     .ok_or_else(|| anyhow::anyhow!("Failed to get crate: {}", crate_version))?
             }
             Some(crate_tar) => crate_tar,
@@ -38,10 +38,10 @@ impl RustAssistant {
         let krate = self.get_crate(&crate_version_path.crate_version).await?;
 
         let path = crate_version_path.path.clone();
-        Ok(tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || {
             krate.get_file_by_file_line_range(path.as_ref(), file_line_range)
         })
-        .await??)
+        .await?
     }
 
     pub async fn read_directory(

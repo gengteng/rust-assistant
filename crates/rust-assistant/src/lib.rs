@@ -57,15 +57,34 @@ pub struct FileLineRange {
     pub end: Option<NonZeroUsize>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Directory {
-    pub files: FnvHashSet<PathBuf>,
-    pub directories: FnvHashSet<PathBuf>,
+    pub files: Arc<FnvHashSet<PathBuf>>,
+    pub directories: Arc<FnvHashSet<PathBuf>>,
 }
 
 impl Directory {
     pub fn is_empty(&self) -> bool {
         self.files.is_empty() && self.directories.is_empty()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DirectoryMut {
+    files: FnvHashSet<PathBuf>,
+    directories: FnvHashSet<PathBuf>,
+}
+
+impl DirectoryMut {
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty() && self.directories.is_empty()
+    }
+
+    pub fn freeze(self) -> Directory {
+        Directory {
+            files: Arc::new(self.files),
+            directories: Arc::new(self.directories),
+        }
     }
 }
 

@@ -63,6 +63,8 @@ async fn read_crate_root_directory(
     }
 }
 
+async fn health() {}
+
 async fn privacy_policy() -> impl IntoResponse {
     include_str!("../../../doc/privacy-policy.md")
 }
@@ -73,6 +75,7 @@ pub fn router() -> Router {
         .route("/*path", get(read_crate_directory));
 
     Router::new()
+        .route("/", get(health))
         .route("/api/summary/:crate/:version/*path", get(get_file_summary))
         .route("/api/file/:crate/:version/*path", get(get_file_content))
         .nest("/api/directory/:crate/:version", directory_app)

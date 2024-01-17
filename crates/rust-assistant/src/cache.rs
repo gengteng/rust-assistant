@@ -1,4 +1,4 @@
-use crate::{CrateVersion, Directory, FileLineRange};
+use crate::{CrateVersion, Directory, DirectoryMut, FileLineRange};
 use bytes::{Bytes, BytesMut};
 use fnv::{FnvHashMap, FnvHashSet};
 use lru::LruCache;
@@ -49,7 +49,8 @@ impl CrateTar {
                 return Ok(Some(content));
             }
         }
-        return Ok(None);
+
+        Ok(None)
     }
 
     /// Get file content by range
@@ -90,7 +91,8 @@ impl CrateTar {
                 ));
             }
         }
-        return Ok(None);
+
+        Ok(None)
     }
 
     /// List all files in a crate
@@ -126,7 +128,7 @@ impl CrateTar {
         let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let base_dir = self.crate_version.root_dir().join(path);
         let entries = archive.entries()?;
-        let mut dir = Directory::default();
+        let mut dir = DirectoryMut::default();
         for entry in entries {
             let Ok(entry) = entry else {
                 continue;
@@ -153,7 +155,7 @@ impl CrateTar {
             }
         }
 
-        Ok(Some(dir))
+        Ok(Some(dir.freeze()))
     }
 }
 
@@ -325,13 +327,13 @@ impl TryFrom<CrateTar> for Crate {
                 let parent = path.parent().map(|p| p.to_path_buf()).unwrap_or_default();
                 directories_index
                     .entry(parent)
-                    .and_modify(|o: &mut Directory| {
+                    .and_modify(|o: &mut DirectoryMut| {
                         o.files.insert(filename.clone());
                     })
                     .or_insert({
                         let mut set = FnvHashSet::default();
                         set.insert(filename);
-                        Directory {
+                        DirectoryMut {
                             files: set,
                             directories: Default::default(),
                         }
@@ -362,14 +364,19 @@ impl TryFrom<CrateTar> for Crate {
         for (k, directories) in subdirectories_index {
             directories_index
                 .entry(k)
-                .and_modify(|directory: &mut Directory| {
+                .and_modify(|directory: &mut DirectoryMut| {
                     directory.directories = directories.clone();
                 })
-                .or_insert(Directory {
+                .or_insert(DirectoryMut {
                     files: Default::default(),
                     directories,
                 });
         }
+
+        let directories_index = directories_index
+            .into_iter()
+            .map(|(k, v)| (k, v.freeze()))
+            .collect();
 
         Ok(Self {
             data: data.freeze(),
