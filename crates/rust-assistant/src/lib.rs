@@ -5,8 +5,9 @@ pub mod axum;
 pub mod cache;
 pub mod download;
 
+use fnv::FnvHashSet;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -37,6 +38,12 @@ where
     }
 }
 
+impl Display for CrateVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.krate, self.version)
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CrateVersionPath {
     #[serde(flatten)]
@@ -52,8 +59,8 @@ pub struct FileLineRange {
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Directory {
-    pub files: BTreeSet<PathBuf>,
-    pub directories: BTreeSet<PathBuf>,
+    pub files: FnvHashSet<PathBuf>,
+    pub directories: FnvHashSet<PathBuf>,
 }
 
 impl Directory {
@@ -65,7 +72,7 @@ impl Directory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::{Crate, CrateCache};
+    use crate::cache::{Crate, CrateCache, CrateTar};
     use crate::download::CrateDownloader;
     use std::num::NonZeroUsize;
 
@@ -76,33 +83,29 @@ mod tests {
         let downloader = CrateDownloader::default();
         let tar_data = downloader.download_crate_file(&crate_version).await?;
         let cache = CrateCache::new(NonZeroUsize::new(1024).unwrap());
-        let old = cache.set_data(crate_version.clone(), tar_data);
+        let crate_tar = CrateTar::from((crate_version.clone(), tar_data));
+        let krate = Crate::try_from(crate_tar)?;
+        let old = cache.set_crate(crate_version.clone(), krate);
         assert!(old.is_none());
 
-        let crate_tar = cache.get(crate_version).expect("get crate");
-        let files = crate_tar.get_all_file_list(..)?;
-        assert!(files.is_some());
-        // println!("{:#?}", files.unwrap());
+        let crate_ = cache.get_crate(&crate_version).expect("get crate");
 
-        let files = crate_tar.read_directory(".")?;
-        assert!(files.is_some());
-        // println!("{:#?}", files.unwrap());
+        let files = crate_.read_directory("").expect("read directory");
+        assert!(!files.is_empty());
+        println!("{:#?}", files);
 
-        let lib_rs_content = crate_tar.get_file("src/lib.rs")?;
+        let lib_rs_content = crate_.get_file_by_line_range("src/lib.rs", ..)?;
         assert!(lib_rs_content.is_some());
         let lib_rs_range_content =
-            crate_tar.get_file_by_range("src/lib.rs", None, NonZeroUsize::new(27).unwrap())?;
+            crate_.get_file_by_line_range("src/lib.rs", ..NonZeroUsize::new(27).unwrap())?;
         assert!(lib_rs_range_content.is_some());
         // println!("{}", lib_rs_range_content.expect("lib.rs"));
         // println!("Elapsed: {}µs", start.elapsed().as_micros());
 
-        let c = Crate::try_from(crate_tar)?;
-        let file = c
-            .get_file_by_line_range("src/lib.rs", NonZeroUsize::new(694).unwrap()..)?
+        let file = crate_
+            .get_file_by_line_range("src/lib.rs", ..=NonZeroUsize::new(3).unwrap())?
             .unwrap();
-        println!("{}", std::str::from_utf8(file.data.as_ref()).unwrap());
-        // let dir = c.read_directory(".");
-        println!("{:#?}", c.directories_index);
+        println!("[{}]", std::str::from_utf8(file.data.as_ref()).unwrap());
         Ok(())
     }
 }

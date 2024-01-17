@@ -1,8 +1,9 @@
 use crate::app::RustAssistant;
+use crate::cache::{CrateFileContent, CrateFileDataType};
 use crate::{CrateVersion, CrateVersionPath, FileLineRange};
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 
@@ -46,7 +47,7 @@ async fn read_crate_root_directory(
     match state
         .read_directory(CrateVersionPath {
             crate_version,
-            path: ".".into(),
+            path: "".into(),
         })
         .await
     {
@@ -77,4 +78,20 @@ pub fn router() -> Router {
         .nest("/api/directory/:crate/:version", directory_app)
         .route("/privacy-policy", get(privacy_policy))
         .with_state(RustAssistant::default())
+}
+
+impl IntoResponse for CrateFileContent {
+    fn into_response(self) -> Response {
+        let content_type = match self.data_type {
+            CrateFileDataType::Utf8 => "text/plain; charset=utf-8",
+            CrateFileDataType::NonUtf8 => "application/octet-stream",
+        };
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::CONTENT_TYPE,
+            HeaderValue::from_static(content_type),
+        );
+        (headers, self.data).into_response()
+    }
 }

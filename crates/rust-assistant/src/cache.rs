@@ -1,9 +1,8 @@
-use crate::{CrateVersion, Directory};
+use crate::{CrateVersion, Directory, FileLineRange};
 use bytes::{Bytes, BytesMut};
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use lru::LruCache;
 use parking_lot::Mutex;
-use std::collections::BTreeSet;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::ops::{Bound, Range, RangeBounds};
@@ -14,13 +13,13 @@ use tar::EntryType;
 #[derive(Clone)]
 pub struct CrateTar {
     pub crate_version: CrateVersion,
-    pub tar_data: Arc<[u8]>,
+    pub tar_data: Vec<u8>,
 }
 
 impl<C, D> From<(C, D)> for CrateTar
 where
     C: Into<CrateVersion>,
-    D: Into<Arc<[u8]>>,
+    D: Into<Vec<u8>>,
 {
     fn from((c, d): (C, D)) -> Self {
         CrateTar {
@@ -33,7 +32,7 @@ where
 impl CrateTar {
     /// Get file content
     pub fn get_file(&self, file: &str) -> anyhow::Result<Option<String>> {
-        let mut archive = tar::Archive::new(self.tar_data.as_ref());
+        let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let entries = archive.entries()?;
         for entry in entries {
             let Ok(mut entry) = entry else {
@@ -60,7 +59,7 @@ impl CrateTar {
         start: impl Into<Option<NonZeroUsize>>,
         end: impl Into<Option<NonZeroUsize>>,
     ) -> anyhow::Result<Option<String>> {
-        let mut archive = tar::Archive::new(self.tar_data.as_ref());
+        let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let entries = archive.entries()?;
         for entry in entries {
             let Ok(mut entry) = entry else {
@@ -98,11 +97,11 @@ impl CrateTar {
     pub fn get_all_file_list(
         &self,
         range: impl RangeBounds<usize>,
-    ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
-        let mut archive = tar::Archive::new(self.tar_data.as_ref());
+    ) -> anyhow::Result<Option<FnvHashSet<PathBuf>>> {
+        let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let root_dir = self.crate_version.root_dir();
         let entries = archive.entries()?;
-        let mut list = BTreeSet::new();
+        let mut list = FnvHashSet::default();
         for (i, entry) in entries.enumerate() {
             if !range.contains(&i) {
                 continue;
@@ -124,7 +123,7 @@ impl CrateTar {
     }
 
     pub fn read_directory<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<Option<Directory>> {
-        let mut archive = tar::Archive::new(self.tar_data.as_ref());
+        let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let base_dir = self.crate_version.root_dir().join(path);
         let entries = archive.entries()?;
         let mut dir = Directory::default();
@@ -172,24 +171,36 @@ pub struct CrateFileDataDesc {
 }
 
 #[derive(Debug, Clone)]
-pub struct CrateFile {
+pub struct CrateFileContent {
     pub data_type: CrateFileDataType,
     pub data: Bytes,
 }
 
 #[derive(Debug, Clone)]
 pub struct Crate {
-    pub data: Bytes,
-    pub files_index: FnvHashMap<PathBuf, CrateFileDataDesc>,
-    pub directories_index: FnvHashMap<PathBuf, Directory>,
+    data: Bytes,
+    files_index: FnvHashMap<PathBuf, CrateFileDataDesc>,
+    directories_index: FnvHashMap<PathBuf, Directory>,
 }
 
 impl Crate {
+    pub fn get_file_by_file_line_range<P: AsRef<Path>>(
+        &self,
+        file: P,
+        FileLineRange { start, end }: FileLineRange,
+    ) -> anyhow::Result<Option<CrateFileContent>> {
+        match (start, end) {
+            (Some(start), Some(end)) => self.get_file_by_line_range(file, start..=end),
+            (Some(start), None) => self.get_file_by_line_range(file, start..),
+            (None, Some(end)) => self.get_file_by_line_range(file, ..=end),
+            (None, None) => self.get_file_by_line_range(file, ..),
+        }
+    }
     pub fn get_file_by_line_range<P: AsRef<Path>>(
         &self,
         file: P,
         line_range: impl RangeBounds<NonZeroUsize>,
-    ) -> anyhow::Result<Option<CrateFile>> {
+    ) -> anyhow::Result<Option<CrateFileContent>> {
         let file = file.as_ref();
         let Some(CrateFileDataDesc { range, data_type }) = self.files_index.get(file) else {
             return Ok(None);
@@ -201,7 +212,7 @@ impl Crate {
             (line_range.start_bound(), line_range.end_bound()),
             (Bound::Unbounded, Bound::Unbounded)
         ) {
-            return Ok(Some(CrateFile {
+            return Ok(Some(CrateFileContent {
                 data,
                 data_type: *data_type,
             }));
@@ -218,7 +229,7 @@ impl Crate {
             Bound::Unbounded => 0,
         };
         let end_line = match line_range.end_bound() {
-            Bound::Included(n) => n.get() - 1,
+            Bound::Included(n) => n.get(),
             Bound::Excluded(n) => n.get() - 1,
             Bound::Unbounded => usize::MAX,
         };
@@ -252,7 +263,7 @@ impl Crate {
 
         if line_start < line_end {
             let line_bytes_range = range.start + line_start..range.start + line_end;
-            return Ok(Some(CrateFile {
+            return Ok(Some(CrateFileContent {
                 data_type: CrateFileDataType::Utf8,
                 data: self.data.slice(line_bytes_range),
             }));
@@ -269,7 +280,7 @@ impl Crate {
 impl TryFrom<CrateTar> for Crate {
     type Error = std::io::Error;
     fn try_from(crate_tar: CrateTar) -> std::io::Result<Self> {
-        let mut archive = tar::Archive::new(crate_tar.tar_data.as_ref());
+        let mut archive = tar::Archive::new(crate_tar.tar_data.as_slice());
         let root_dir = crate_tar.crate_version.root_dir();
 
         let mut data = BytesMut::new();
@@ -311,17 +322,14 @@ impl TryFrom<CrateTar> for Crate {
 
                 data.extend_from_slice(buffer.as_slice());
                 files_index.insert(path.clone(), CrateFileDataDesc { data_type, range });
-                let parent = match path.parent() {
-                    None => PathBuf::from("."),
-                    Some(parent) => parent.to_path_buf(),
-                };
+                let parent = path.parent().map(|p| p.to_path_buf()).unwrap_or_default();
                 directories_index
                     .entry(parent)
                     .and_modify(|o: &mut Directory| {
                         o.files.insert(filename.clone());
                     })
                     .or_insert({
-                        let mut set = BTreeSet::new();
+                        let mut set = FnvHashSet::default();
                         set.insert(filename);
                         Directory {
                             files: set,
@@ -329,6 +337,38 @@ impl TryFrom<CrateTar> for Crate {
                         }
                     });
             }
+        }
+
+        let mut subdirectories_index = FnvHashMap::default();
+        for key in directories_index.keys() {
+            let Some(last) = key.components().last() else {
+                continue;
+            };
+
+            let sub_dir_name = PathBuf::from(last.as_os_str());
+            let parent = key.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            subdirectories_index
+                .entry(parent)
+                .and_modify(|s: &mut FnvHashSet<PathBuf>| {
+                    s.insert(sub_dir_name.clone());
+                })
+                .or_insert({
+                    let mut set = FnvHashSet::default();
+                    set.insert(sub_dir_name);
+                    set
+                });
+        }
+
+        for (k, directories) in subdirectories_index {
+            directories_index
+                .entry(k)
+                .and_modify(|directory: &mut Directory| {
+                    directory.directories = directories.clone();
+                })
+                .or_insert(Directory {
+                    files: Default::default(),
+                    directories,
+                });
         }
 
         Ok(Self {
@@ -341,7 +381,7 @@ impl TryFrom<CrateTar> for Crate {
 
 #[derive(Clone)]
 pub struct CrateCache {
-    lru: Arc<Mutex<LruCache<CrateVersion, Arc<[u8]>>>>,
+    lru: Arc<Mutex<LruCache<CrateVersion, Crate, fnv::FnvBuildHasher>>>,
 }
 
 impl Default for CrateCache {
@@ -354,31 +394,24 @@ impl CrateCache {
     /// Create a new cache instance.
     pub fn new(capacity: NonZeroUsize) -> Self {
         CrateCache {
-            lru: Arc::new(Mutex::new(LruCache::new(capacity))),
+            lru: Arc::new(Mutex::new(LruCache::with_hasher(
+                capacity,
+                fnv::FnvBuildHasher::default(),
+            ))),
         }
     }
 
-    /// Get raw crate file data
-    pub fn get_data(&self, crate_version: &CrateVersion) -> Option<Arc<[u8]>> {
+    /// Get crate
+    pub fn get_crate(&self, crate_version: &CrateVersion) -> Option<Crate> {
         self.lru.lock().get(crate_version).cloned()
     }
 
-    /// Get crate
-    pub fn get(&self, crate_version: impl Into<CrateVersion>) -> Option<CrateTar> {
-        let crate_version = crate_version.into();
-        let data = self.lru.lock().get(&crate_version).cloned()?;
-        Some(CrateTar {
-            crate_version,
-            tar_data: data,
-        })
-    }
-
-    /// Set crate file data.
-    pub fn set_data(
+    /// Set crate
+    pub fn set_crate(
         &self,
         crate_version: impl Into<CrateVersion>,
-        data: impl Into<Arc<[u8]>>,
-    ) -> Option<Arc<[u8]>> {
-        self.lru.lock().put(crate_version.into(), data.into())
+        krate: impl Into<Crate>,
+    ) -> Option<Crate> {
+        self.lru.lock().put(crate_version.into(), krate.into())
     }
 }

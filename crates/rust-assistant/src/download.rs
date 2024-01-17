@@ -1,7 +1,6 @@
 use crate::CrateVersion;
 use reqwest::{Client, ClientBuilder};
 use std::io::Read;
-use std::sync::Arc;
 
 #[derive(Debug, Default, Clone)]
 pub struct CrateDownloader {
@@ -28,7 +27,7 @@ impl CrateDownloader {
     pub async fn download_crate_file(
         &self,
         crate_version: &CrateVersion,
-    ) -> anyhow::Result<Arc<[u8]>> {
+    ) -> anyhow::Result<Vec<u8>> {
         let url = format!(
             "https://static.crates.io/crates/{}/{}-{}.crate",
             crate_version.krate, crate_version.krate, crate_version.version
@@ -51,6 +50,6 @@ impl CrateDownloader {
         })
         .await??;
 
-        Ok(Arc::from(data))
+        Ok(data)
     }
 }

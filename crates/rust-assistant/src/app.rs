@@ -1,8 +1,6 @@
-use crate::cache::{CrateCache, CrateTar};
+use crate::cache::{Crate, CrateCache, CrateFileContent, CrateTar};
 use crate::download::CrateDownloader;
 use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange};
-use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 #[derive(Clone, Default)]
 pub struct RustAssistant {
@@ -17,12 +15,17 @@ impl From<(CrateDownloader, CrateCache)> for RustAssistant {
 }
 
 impl RustAssistant {
-    pub async fn get_crate_tar(&self, crate_version: &CrateVersion) -> anyhow::Result<CrateTar> {
-        Ok(match self.cache.get(crate_version.clone()) {
+    pub async fn get_crate(&self, crate_version: &CrateVersion) -> anyhow::Result<Crate> {
+        Ok(match self.cache.get_crate(crate_version) {
             None => {
                 let data = self.downloader.download_crate_file(crate_version).await?;
-                self.cache.set_data(crate_version.clone(), data.clone());
-                CrateTar::from((crate_version.clone(), data))
+                let crate_tar = CrateTar::from((crate_version.clone(), data));
+                let krate =
+                    tokio::task::spawn_blocking(move || Crate::try_from(crate_tar)).await??;
+                self.cache.set_crate(crate_version.clone(), krate);
+                self.cache
+                    .get_crate(&crate_version)
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get crate: {}", crate_version))?
             }
             Some(crate_tar) => crate_tar,
         })
@@ -30,38 +33,24 @@ impl RustAssistant {
     pub async fn get_file_content(
         &self,
         crate_version_path: &CrateVersionPath,
-        FileLineRange { start, end }: FileLineRange,
-    ) -> anyhow::Result<Option<String>> {
-        let crate_tar = self
-            .get_crate_tar(&crate_version_path.crate_version)
-            .await?;
+        file_line_range: FileLineRange,
+    ) -> anyhow::Result<Option<CrateFileContent>> {
+        let krate = self.get_crate(&crate_version_path.crate_version).await?;
 
         let path = crate_version_path.path.clone();
-        let file = tokio::task::spawn_blocking(move || {
-            crate_tar.get_file_by_range(path.as_ref(), start, end)
+        Ok(tokio::task::spawn_blocking(move || {
+            krate.get_file_by_file_line_range(path.as_ref(), file_line_range)
         })
-        .await??;
-        Ok(file)
-    }
-
-    pub async fn get_file_list(
-        &self,
-        crate_version: &CrateVersion,
-    ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
-        let crate_tar = self.get_crate_tar(crate_version).await?;
-        Ok(tokio::task::spawn_blocking(move || crate_tar.get_all_file_list(..)).await??)
+        .await??)
     }
 
     pub async fn read_directory(
         &self,
         crate_version_path: CrateVersionPath,
     ) -> anyhow::Result<Option<Directory>> {
-        let crate_tar = self
-            .get_crate_tar(&crate_version_path.crate_version)
-            .await?;
-        Ok(tokio::task::spawn_blocking(move || {
-            crate_tar.read_directory(crate_version_path.path.as_ref())
-        })
-        .await??)
+        let krate = self.get_crate(&crate_version_path.crate_version).await?;
+        Ok(krate
+            .read_directory(crate_version_path.path.as_ref())
+            .cloned())
     }
 }
