@@ -21,7 +21,8 @@ parking_lot = "0.12.1"
 fnv = "1.0.7"
 
 axum = { workspace = true, optional = true}
+axum-extra = { workspace = true, features = ["typed-header"], optional = true}
 
 [features]
-axum = ["dep:axum"]
+axum = ["dep:axum", "dep:axum-extra"]
 

@@ -1,11 +1,17 @@
 use crate::app::RustAssistant;
 use crate::cache::{CrateFileContent, CrateFileDataType};
 use crate::{CrateVersion, CrateVersionPath, FileLineRange};
-use axum::extract::{Path, Query, State};
+use axum::extract::{FromRequestParts, Path, Query, State};
+use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
+use axum_extra::headers::authorization::Basic;
+use axum_extra::headers::Authorization;
+use axum_extra::TypedHeader;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 async fn get_file_summary(Path(path): Path<CrateVersionPath>) -> impl IntoResponse {
     (StatusCode::NOT_IMPLEMENTED, Json(path))
@@ -69,18 +75,26 @@ async fn privacy_policy() -> impl IntoResponse {
     include_str!("../../../doc/privacy-policy.md")
 }
 
-pub fn router() -> Router {
+pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
     let directory_app = Router::new()
         .route("/", get(read_crate_root_directory))
         .route("/*path", get(read_crate_directory));
 
-    Router::new()
+    let router = Router::new()
         .route("/", get(health))
         .route("/api/summary/:crate/:version/*path", get(get_file_summary))
         .route("/api/file/:crate/:version/*path", get(get_file_content))
         .nest("/api/directory/:crate/:version", directory_app)
         .route("/privacy-policy", get(privacy_policy))
-        .with_state(RustAssistant::default())
+        .with_state(RustAssistant::default());
+
+    if let Some(auth_info) = auth_info.into() {
+        router
+            .layer(axum::middleware::from_extractor::<RequireAuth>())
+            .layer(Extension(auth_info))
+    } else {
+        router
+    }
 }
 
 impl IntoResponse for CrateFileContent {
@@ -96,5 +110,52 @@ impl IntoResponse for CrateFileContent {
             HeaderValue::from_static(content_type),
         );
         (headers, self.data).into_response()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AuthInfo {
+    pub username: Arc<str>,
+    pub password: Arc<str>,
+}
+
+impl AuthInfo {
+    pub fn check(&self, basic: &Basic) -> bool {
+        self.username.as_ref().eq(basic.username()) && self.password.as_ref().eq(basic.password())
+    }
+}
+
+impl<U, P> From<(U, P)> for AuthInfo
+where
+    U: AsRef<str>,
+    P: AsRef<str>,
+{
+    fn from((u, p): (U, P)) -> Self {
+        Self {
+            username: Arc::from(u.as_ref()),
+            password: Arc::from(p.as_ref()),
+        }
+    }
+}
+
+pub struct RequireAuth;
+
+#[axum::async_trait]
+impl FromRequestParts<()> for RequireAuth {
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, state: &()) -> Result<Self, Self::Rejection> {
+        let TypedHeader(Authorization(basic)) =
+            TypedHeader::<Authorization<Basic>>::from_request_parts(parts, state)
+                .await
+                .map_err(IntoResponse::into_response)?;
+        let auth_info = Extension::<AuthInfo>::from_request_parts(parts, state)
+            .await
+            .map_err(IntoResponse::into_response)?;
+        if auth_info.check(&basic) {
+            Ok(RequireAuth)
+        } else {
+            Err(StatusCode::UNAUTHORIZED.into_response())
+        }
     }
 }

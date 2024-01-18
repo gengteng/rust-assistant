@@ -10,3 +10,4 @@ axum.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
 rust-assistant = { path = "../rust-assistant", features = ["axum"] }
+dotenv = "0.15.0"
