@@ -76,25 +76,29 @@ async fn privacy_policy() -> impl IntoResponse {
 }
 
 pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
-    let directory_app = Router::new()
-        .route("/", get(read_crate_root_directory))
-        .route("/*path", get(read_crate_directory));
-
-    let router = Router::new()
+    let main = Router::new()
         .route("/", get(health))
-        .route("/api/summary/:crate/:version/*path", get(get_file_summary))
-        .route("/api/file/:crate/:version/*path", get(get_file_content))
-        .nest("/api/directory/:crate/:version", directory_app)
-        .route("/privacy-policy", get(privacy_policy))
+        .route("/privacy-policy", get(privacy_policy));
+
+    let api = Router::new()
+        .route("/summary/:crate/:version/*path", get(get_file_summary))
+        .route("/file/:crate/:version/*path", get(get_file_content))
+        .nest(
+            "/directory/:crate/:version",
+            Router::new()
+                .route("/", get(read_crate_root_directory))
+                .route("/*path", get(read_crate_directory)),
+        )
         .with_state(RustAssistant::default());
 
-    if let Some(auth_info) = auth_info.into() {
-        router
-            .layer(axum::middleware::from_extractor::<RequireAuth>())
+    let api = if let Some(auth_info) = auth_info.into() {
+        api.layer(axum::middleware::from_extractor::<RequireAuth>())
             .layer(Extension(auth_info))
     } else {
-        router
-    }
+        api
+    };
+
+    main.nest("/api", api)
 }
 
 impl IntoResponse for CrateFileContent {
