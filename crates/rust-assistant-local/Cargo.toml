@@ -9,5 +9,5 @@ edition = "2021"
 axum.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
-rust-assistant = { path = "../rust-assistant", features = ["axum"] }
+rust-assistant = { path = "../rust-assistant", features = ["axum", "utoipa"] }
 dotenv = "0.15.0"

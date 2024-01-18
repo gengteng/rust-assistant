@@ -389,13 +389,13 @@ Schema:
   "paths": {
     "/api/directory/{crate}/{version}": {
       "get": {
-        "description": "Read crate root directory file list.",
+        "description": "Read crate root directory.",
         "operationId": "ReadCrateRootDirectory",
         "parameters": [
           {
             "name": "crate",
             "in": "path",
-            "description": "Exact crate name.",
+            "description": "The exact name of the crate.",
             "required": true,
             "schema": {
               "type": "string"
@@ -404,7 +404,7 @@ Schema:
           {
             "name": "version",
             "in": "path",
-            "description": "Exact crate version.",
+            "description": "The semantic version number of the specified crate, following the Semantic versioning specification.",
             "required": true,
             "schema": {
               "type": "string"
@@ -422,7 +422,7 @@ Schema:
           {
             "name": "crate",
             "in": "path",
-            "description": "Exact crate name.",
+            "description": "The exact name of the crate.",
             "required": true,
             "schema": {
               "type": "string"
@@ -431,7 +431,7 @@ Schema:
           {
             "name": "version",
             "in": "path",
-            "description": "Exact crate version.",
+            "description": "The semantic version number of the specified crate, following the Semantic versioning specification.",
             "required": true,
             "schema": {
               "type": "string"
@@ -458,7 +458,7 @@ Schema:
           {
             "name": "crate",
             "in": "path",
-            "description": "Exact crate name.",
+            "description": "The exact name of the crate.",
             "required": true,
             "schema": {
               "type": "string"
@@ -467,7 +467,7 @@ Schema:
           {
             "name": "version",
             "in": "path",
-            "description": "Exact crate version.",
+            "description": "The semantic version number of the specified crate, following the Semantic versioning specification.",
             "required": true,
             "schema": {
               "type": "string"

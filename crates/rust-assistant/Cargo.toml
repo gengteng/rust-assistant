@@ -22,7 +22,10 @@ fnv = "1.0.7"
 
 axum = { workspace = true, optional = true}
 axum-extra = { workspace = true, features = ["typed-header"], optional = true}
+utoipa = { version = "4.2.0", features = ["axum_extras"], optional = true }
+utoipa-swagger-ui = { version = "6.0.0", features = ["axum"], optional = true }
 
 [features]
-axum = ["dep:axum", "dep:axum-extra"]
+axum = ["dep:axum", "dep:axum-extra", "utoipa-swagger-ui/axum"]
+utoipa = ["dep:utoipa", "dep:utoipa-swagger-ui"]
 

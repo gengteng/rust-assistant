@@ -1,8 +1,9 @@
 use crate::{CrateVersion, Directory, DirectoryMut, FileLineRange};
 use bytes::{Bytes, BytesMut};
-use fnv::{FnvHashMap, FnvHashSet};
+use fnv::FnvHashMap;
 use lru::LruCache;
 use parking_lot::Mutex;
+use std::collections::BTreeSet;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::ops::{Bound, Range, RangeBounds};
@@ -99,11 +100,11 @@ impl CrateTar {
     pub fn get_all_file_list(
         &self,
         range: impl RangeBounds<usize>,
-    ) -> anyhow::Result<Option<FnvHashSet<PathBuf>>> {
+    ) -> anyhow::Result<Option<BTreeSet<PathBuf>>> {
         let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let root_dir = self.crate_version.root_dir();
         let entries = archive.entries()?;
-        let mut list = FnvHashSet::default();
+        let mut list = BTreeSet::default();
         for (i, entry) in entries.enumerate() {
             if !range.contains(&i) {
                 continue;
@@ -331,7 +332,7 @@ impl TryFrom<CrateTar> for Crate {
                         o.files.insert(filename.clone());
                     })
                     .or_insert({
-                        let mut set = FnvHashSet::default();
+                        let mut set = BTreeSet::default();
                         set.insert(filename);
                         DirectoryMut {
                             files: set,
@@ -351,11 +352,11 @@ impl TryFrom<CrateTar> for Crate {
             let parent = key.parent().map(|p| p.to_path_buf()).unwrap_or_default();
             subdirectories_index
                 .entry(parent)
-                .and_modify(|s: &mut FnvHashSet<PathBuf>| {
+                .and_modify(|s: &mut BTreeSet<PathBuf>| {
                     s.insert(sub_dir_name.clone());
                 })
                 .or_insert({
-                    let mut set = FnvHashSet::default();
+                    let mut set = BTreeSet::default();
                     set.insert(sub_dir_name);
                     set
                 });

@@ -5,17 +5,23 @@ pub mod axum;
 pub mod cache;
 pub mod download;
 
-use fnv::FnvHashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[cfg(feature = "utoipa")]
+use utoipa::ToSchema;
+
+/// The name and version of the crate.
 #[derive(Debug, Deserialize, Serialize, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CrateVersion {
+    /// The exact name of the crate
     #[serde(rename = "crate")]
     pub krate: Arc<str>,
+    /// The semantic version number of the specified crate, following the Semantic versioning specification.
     pub version: Arc<str>,
 }
 
@@ -44,10 +50,12 @@ impl Display for CrateVersion {
     }
 }
 
+/// The path of a specific file or directory within a crate's directory structure.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CrateVersionPath {
     #[serde(flatten)]
     pub crate_version: CrateVersion,
+    /// The path.
     pub path: Arc<str>,
 }
 
@@ -57,10 +65,16 @@ pub struct FileLineRange {
     pub end: Option<NonZeroUsize>,
 }
 
+/// Represents the contents of a directory, including files and subdirectories.
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Directory {
-    pub files: Arc<FnvHashSet<PathBuf>>,
-    pub directories: Arc<FnvHashSet<PathBuf>>,
+    /// Files in the directory.
+    #[cfg_attr(feature = "utoipa", schema(value_type = BTreeSet<String>))]
+    pub files: Arc<BTreeSet<PathBuf>>,
+    /// Subdirectories in the directory.
+    #[cfg_attr(feature = "utoipa", schema(value_type = BTreeSet<String>))]
+    pub directories: Arc<BTreeSet<PathBuf>>,
 }
 
 impl Directory {
@@ -71,8 +85,8 @@ impl Directory {
 
 #[derive(Debug, Default)]
 pub struct DirectoryMut {
-    files: FnvHashSet<PathBuf>,
-    directories: FnvHashSet<PathBuf>,
+    files: BTreeSet<PathBuf>,
+    directories: BTreeSet<PathBuf>,
 }
 
 impl DirectoryMut {
