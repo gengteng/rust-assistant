@@ -48,10 +48,10 @@ Only when the user is detected to be using Chinese, the term 'trait' should be t
 
 ## Conversation starters
 
-* What is borrowing in Rust?
-* How to use Cargo for Rust projects?
-* Explain Rust's pattern matching.
-* Optimizing Rust code for performance.
+* What are the changes in the latest version of Rust?
+* How do I use serde crate for JSON serialization?
+* Can you analyze the source code of the tokio crate?
+* What are the common dependencies for asynchronous programming in Rust?
 
 ## Knowledge
 
