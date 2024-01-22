@@ -2,7 +2,7 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use syn::spanned::Spanned;
 use syn::{Attribute, ItemEnum, ItemFn, ItemImpl, ItemMacro, ItemStruct, ItemTrait};
@@ -60,43 +60,53 @@ pub struct SearchIndexMut {
 }
 
 impl SearchIndexMut {
-    pub fn search(&self, type_: ItemType, query: &str) -> Vec<Item> {
+    pub fn search(&self, type_: ItemType, query: &str, path: Option<PathBuf>) -> Vec<Item> {
         let query = query.to_lowercase();
+        let path = path.as_ref().map(|p| p.as_path());
         match type_ {
             ItemType::All => {
                 let mut all = Vec::new();
-                all.extend(filter_items(&query, &self.structs));
-                all.extend(filter_items(&query, &self.enums));
-                all.extend(filter_items(&query, &self.traits));
-                all.extend(filter_items(&query, &self.impl_types));
-                all.extend(filter_items(&query, &self.impl_trait_for_types));
-                all.extend(filter_items(&query, &self.macros));
-                all.extend(filter_items(&query, &self.attribute_macros));
-                all.extend(filter_items(&query, &self.functions));
-                all.extend(filter_items(&query, &self.type_aliases));
+                all.extend(filter_items(&query, &self.structs, path));
+                all.extend(filter_items(&query, &self.enums, path));
+                all.extend(filter_items(&query, &self.traits, path));
+                all.extend(filter_items(&query, &self.impl_types, path));
+                all.extend(filter_items(&query, &self.impl_trait_for_types, path));
+                all.extend(filter_items(&query, &self.macros, path));
+                all.extend(filter_items(&query, &self.attribute_macros, path));
+                all.extend(filter_items(&query, &self.functions, path));
+                all.extend(filter_items(&query, &self.type_aliases, path));
                 all
             }
-            ItemType::Struct => filter_items(&query, &self.structs),
-            ItemType::Enum => filter_items(&query, &self.enums),
-            ItemType::Trait => filter_items(&query, &self.traits),
-            ItemType::ImplType => filter_items(&query, &self.impl_types),
-            ItemType::ImplTraitForType => filter_items(&query, &self.impl_trait_for_types),
-            ItemType::Macro => filter_items(&query, &self.macros),
-            ItemType::AttributeMacro => filter_items(&query, &self.attribute_macros),
-            ItemType::Function => filter_items(&query, &self.functions),
-            ItemType::TypeAlias => filter_items(&query, &self.type_aliases),
+            ItemType::Struct => filter_items(&query, &self.structs, path),
+            ItemType::Enum => filter_items(&query, &self.enums, path),
+            ItemType::Trait => filter_items(&query, &self.traits, path),
+            ItemType::ImplType => filter_items(&query, &self.impl_types, path),
+            ItemType::ImplTraitForType => filter_items(&query, &self.impl_trait_for_types, path),
+            ItemType::Macro => filter_items(&query, &self.macros, path),
+            ItemType::AttributeMacro => filter_items(&query, &self.attribute_macros, path),
+            ItemType::Function => filter_items(&query, &self.functions, path),
+            ItemType::TypeAlias => filter_items(&query, &self.type_aliases, path),
         }
     }
 }
 
-fn filter_items(query: &str, items: &FnvHashMap<String, Vec<Item>>) -> Vec<Item> {
-    items
+fn filter_items(
+    query: &str,
+    items: &FnvHashMap<String, Vec<Item>>,
+    path: Option<&Path>,
+) -> Vec<Item> {
+    let flatten = items
         .iter()
         .filter(|(name, _)| name.contains(&query))
         .map(|(_, item)| item)
-        .flatten()
-        .cloned()
-        .collect::<Vec<Item>>()
+        .flatten();
+    match path {
+        None => flatten.cloned().collect::<Vec<Item>>(),
+        Some(path) => flatten
+            .filter(|item| item.file.starts_with(path))
+            .cloned()
+            .collect::<Vec<Item>>(),
+    }
 }
 
 pub type SearchIndex = Arc<SearchIndexMut>;
@@ -283,21 +293,4 @@ fn is_attribute_macro(attrs: &[Attribute]) -> bool {
         // check proc_macro_attribute
         attr.path().is_ident("proc_macro_attribute")
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_index() {
-        let p = PathBuf::from("data/src.rs");
-        let content = std::fs::read_to_string(p.as_path()).expect("read file");
-        let mut index_builder = SearchIndexBuilder::default();
-        index_builder.update(p.as_path(), &content);
-        let index = index_builder.finish();
-        println!("{:#?}", index);
-        println!("{:?}", index.search(ItemType::All, "trait"));
-    }
 }

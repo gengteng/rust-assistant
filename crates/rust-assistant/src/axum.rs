@@ -11,6 +11,7 @@ use axum_extra::headers::authorization::Basic;
 use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,6 +19,7 @@ pub struct QueryParam {
     #[serde(rename = "type")]
     pub type_: ItemType,
     pub query: String,
+    pub path: Option<PathBuf>,
 }
 
 /// Search a crate for items.
@@ -31,6 +33,7 @@ pub struct QueryParam {
         ("version" = String, Path, description = "The semantic version number of the crate, following the Semantic versioning specification."),
         ("type" = ItemType, Query, description = "The type of the item."),
         ("query" = String, Query, description = "Query string."),
+        ("path" = String, Query, description = "Directory containing the items to search."),
     ),
     security(
         ("api_auth" = [])
@@ -42,7 +45,7 @@ pub async fn search_crate_for_items(
     State(state): State<RustAssistant>,
 ) -> impl IntoResponse {
     match state
-        .search(&crate_version, param.type_, &param.query)
+        .search(&crate_version, param.type_, &param.query, param.path)
         .await
     {
         Ok(items) => Json(items).into_response(),

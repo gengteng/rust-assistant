@@ -281,8 +281,8 @@ impl Crate {
         self.directories_index.get(path.as_ref())
     }
 
-    pub fn search(&self, type_: ItemType, query: &str) -> Vec<Item> {
-        self.search_index.search(type_, query)
+    pub fn search(&self, type_: ItemType, query: &str, path: Option<PathBuf>) -> Vec<Item> {
+        self.search_index.search(type_, query, path)
     }
 }
 
