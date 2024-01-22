@@ -1,5 +1,6 @@
 use crate::cache::{Crate, CrateCache, CrateFileContent, CrateTar};
 use crate::download::CrateDownloader;
+use crate::search::{Item, ItemType};
 use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange};
 
 #[derive(Clone, Default)]
@@ -52,5 +53,15 @@ impl RustAssistant {
         Ok(krate
             .read_directory(crate_version_path.path.as_ref())
             .cloned())
+    }
+
+    pub async fn search(
+        &self,
+        crate_version: &CrateVersion,
+        type_: ItemType,
+        query: &str,
+    ) -> anyhow::Result<Vec<Item>> {
+        let krate = self.get_crate(crate_version).await?;
+        Ok(krate.search(type_, query))
     }
 }

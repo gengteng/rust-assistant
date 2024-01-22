@@ -16,6 +16,8 @@ use std::sync::Arc;
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
+pub use search::*;
+
 /// The name and version of the crate.
 #[derive(Debug, Deserialize, Serialize, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CrateVersion {

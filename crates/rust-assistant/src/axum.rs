@@ -1,6 +1,6 @@
 use crate::app::RustAssistant;
 use crate::cache::{CrateFileContent, CrateFileDataType};
-use crate::{CrateVersion, CrateVersionPath, FileLineRange};
+use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemType};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -13,8 +13,41 @@ use axum_extra::TypedHeader;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-pub async fn get_file_summary(Path(path): Path<CrateVersionPath>) -> impl IntoResponse {
-    (StatusCode::NOT_IMPLEMENTED, Json(path))
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryParam {
+    #[serde(rename = "type")]
+    pub type_: ItemType,
+    pub query: String,
+}
+
+/// Search a crate for items.
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/items/{crate}/{version}", responses(
+        (status = 200, description = "Search the crate for items successfully.", body = [crate::Item]),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+    params(
+        ("crate" = String, Path, description = "The exact name of the crate."),
+        ("version" = String, Path, description = "The semantic version number of the crate, following the Semantic versioning specification."),
+        ("type" = ItemType, Query, description = "The type of the item."),
+        ("query" = String, Query, description = "Query string."),
+    ),
+    security(
+        ("api_auth" = [])
+    )
+))]
+pub async fn search_crate_for_items(
+    Path(crate_version): Path<CrateVersion>,
+    Query(param): Query<QueryParam>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .search(&crate_version, param.type_, &param.query)
+        .await
+    {
+        Ok(items) => Json(items).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
 }
 
 /// Read file in crate.
@@ -127,7 +160,7 @@ pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
     };
 
     let api = Router::new()
-        .route("/summary/:crate/:version/*path", get(get_file_summary))
+        .route("/items/:crate/:version", get(search_crate_for_items))
         .route("/file/:crate/:version/*path", get(get_file_content))
         .nest(
             "/directory/:crate/:version",
@@ -224,9 +257,10 @@ mod swagger_ui {
         super::get_file_content,
         super::read_crate_directory,
         super::read_crate_root_directory,
+        super::search_crate_for_items,
     ),
     components(
-        schemas(crate::Directory)
+        schemas(crate::Directory, crate::Item, crate::ItemType)
     ),
     modifiers(&SecurityAddon),
     tags(

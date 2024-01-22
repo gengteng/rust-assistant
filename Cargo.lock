@@ -1793,6 +1793,7 @@ dependencies = [
  "lru",
  "parking_lot",
  "proc-macro2",
+ "quote",
  "reqwest",
  "serde",
  "syn 2.0.48",

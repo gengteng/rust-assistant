@@ -1,21 +1,37 @@
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
-use std::ops::Range;
+use std::ops::RangeInclusive;
 use std::path::Path;
 use std::sync::Arc;
 use syn::spanned::Spanned;
 use syn::{Attribute, ItemEnum, ItemFn, ItemImpl, ItemMacro, ItemStruct, ItemTrait};
 
+#[cfg(feature = "utoipa")]
+use utoipa::ToSchema;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Item {
     pub name: String,
+    #[serde(rename = "type")]
     pub type_: ItemType,
+    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
     pub file: Arc<Path>,
-    pub line_range: Range<NonZeroUsize>,
+    #[cfg_attr(feature = "utoipa", schema(value_type = RangeSchema))]
+    pub line_range: RangeInclusive<NonZeroUsize>,
+}
+
+#[cfg(feature = "utoipa")]
+#[derive(ToSchema)]
+pub struct RangeSchema {
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub enum ItemType {
     #[default]
     All,
@@ -31,7 +47,7 @@ pub enum ItemType {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct IndexMut {
+pub struct SearchIndexMut {
     pub structs: FnvHashMap<String, Vec<Item>>,
     pub enums: FnvHashMap<String, Vec<Item>>,
     pub traits: FnvHashMap<String, Vec<Item>>,
@@ -43,10 +59,10 @@ pub struct IndexMut {
     pub type_aliases: FnvHashMap<String, Vec<Item>>,
 }
 
-impl IndexMut {
-    pub fn search(&self, type_: impl Into<Option<ItemType>>, query: &str) -> Vec<Item> {
+impl SearchIndexMut {
+    pub fn search(&self, type_: ItemType, query: &str) -> Vec<Item> {
         let query = query.to_lowercase();
-        match type_.into().unwrap_or_default() {
+        match type_ {
             ItemType::All => {
                 let mut all = Vec::new();
                 all.extend(filter_items(&query, &self.structs));
@@ -75,27 +91,28 @@ impl IndexMut {
 
 fn filter_items(query: &str, items: &FnvHashMap<String, Vec<Item>>) -> Vec<Item> {
     items
-        .values()
+        .iter()
+        .filter(|(name, _)| name.contains(&query))
+        .map(|(_, item)| item)
         .flatten()
-        .filter(|item| item.name.to_lowercase().contains(&query))
         .cloned()
         .collect::<Vec<Item>>()
 }
 
-pub type Index = Arc<IndexMut>;
+pub type SearchIndex = Arc<SearchIndexMut>;
 
-impl IndexMut {
-    pub fn freeze(self) -> Index {
+impl SearchIndexMut {
+    pub fn freeze(self) -> SearchIndex {
         Arc::new(self)
     }
 }
 
 #[derive(Debug, Default)]
-pub struct IndexBuilder {
-    index: IndexMut,
+pub struct SearchIndexBuilder {
+    index: SearchIndexMut,
 }
 
-impl IndexBuilder {
+impl SearchIndexBuilder {
     pub fn update<P: AsRef<Path>>(&mut self, file: P, content: &str) -> bool {
         let mut visitor = IndexVisitor::new(&mut self.index, file);
         if let Ok(ast) = syn::parse_file(content) {
@@ -106,18 +123,18 @@ impl IndexBuilder {
         }
     }
 
-    pub fn finish(self) -> Index {
+    pub fn finish(self) -> SearchIndex {
         self.index.freeze()
     }
 }
 
 pub struct IndexVisitor<'i> {
-    index: &'i mut IndexMut,
+    index: &'i mut SearchIndexMut,
     current_file: Arc<Path>,
 }
 
 impl<'i> IndexVisitor<'i> {
-    pub fn new<P: AsRef<Path>>(index: &'i mut IndexMut, current_file: P) -> Self {
+    pub fn new<P: AsRef<Path>>(index: &'i mut SearchIndexMut, current_file: P) -> Self {
         IndexVisitor {
             index,
             current_file: Arc::from(current_file.as_ref()),
@@ -150,10 +167,7 @@ impl<'i> IndexVisitor<'i> {
             name,
             type_,
             file: self.current_file.clone(),
-            line_range: Range {
-                start: start_line,
-                end: end_line,
-            },
+            line_range: start_line..=end_line,
         }
     }
 }
@@ -280,8 +294,10 @@ mod tests {
     fn test_index() {
         let p = PathBuf::from("data/src.rs");
         let content = std::fs::read_to_string(p.as_path()).expect("read file");
-        let mut index_builder = IndexBuilder::default();
+        let mut index_builder = SearchIndexBuilder::default();
         index_builder.update(p.as_path(), &content);
-        println!("{:#?}", index_builder.finish());
+        let index = index_builder.finish();
+        println!("{:#?}", index);
+        println!("{:?}", index.search(ItemType::All, "trait"));
     }
 }

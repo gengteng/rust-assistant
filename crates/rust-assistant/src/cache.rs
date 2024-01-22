@@ -1,3 +1,4 @@
+use crate::search::{Item, ItemType, SearchIndex, SearchIndexBuilder};
 use crate::{CrateVersion, Directory, DirectoryMut, FileLineRange};
 use bytes::{Bytes, BytesMut};
 use fnv::FnvHashMap;
@@ -184,6 +185,7 @@ pub struct Crate {
     data: Bytes,
     files_index: Arc<FnvHashMap<PathBuf, CrateFileDataDesc>>,
     directories_index: Arc<FnvHashMap<PathBuf, Directory>>,
+    search_index: SearchIndex,
 }
 
 impl Crate {
@@ -278,6 +280,10 @@ impl Crate {
     pub fn read_directory<P: AsRef<Path>>(&self, path: P) -> Option<&Directory> {
         self.directories_index.get(path.as_ref())
     }
+
+    pub fn search(&self, type_: ItemType, query: &str) -> Vec<Item> {
+        self.search_index.search(type_, query)
+    }
 }
 
 impl TryFrom<CrateTar> for Crate {
@@ -289,6 +295,7 @@ impl TryFrom<CrateTar> for Crate {
         let mut data = BytesMut::new();
         let mut files_index = FnvHashMap::default();
         let mut directories_index = FnvHashMap::default();
+        let mut search_index_builder = SearchIndexBuilder::default();
 
         let mut buffer = Vec::new();
         let entries = archive.entries()?;
@@ -310,6 +317,8 @@ impl TryFrom<CrateTar> for Crate {
             };
 
             let filename = PathBuf::from(last.as_os_str());
+            let is_rust_src =
+                matches!(filename.extension(), Some(ext) if ext.eq_ignore_ascii_case("rs"));
 
             let path = path.to_path_buf();
             if let EntryType::Regular = entry.header().entry_type() {
@@ -317,7 +326,12 @@ impl TryFrom<CrateTar> for Crate {
                 entry.read_to_end(&mut buffer)?;
 
                 let data_type = match std::str::from_utf8(&buffer) {
-                    Ok(_) => CrateFileDataType::Utf8,
+                    Ok(utf8_src) => {
+                        if is_rust_src {
+                            search_index_builder.update(path.as_path(), utf8_src);
+                        }
+                        CrateFileDataType::Utf8
+                    }
                     Err(_) => CrateFileDataType::NonUtf8,
                 };
 
@@ -383,6 +397,7 @@ impl TryFrom<CrateTar> for Crate {
             data: data.freeze(),
             files_index: Arc::new(files_index),
             directories_index: Arc::new(directories_index),
+            search_index: search_index_builder.finish(),
         })
     }
 }
