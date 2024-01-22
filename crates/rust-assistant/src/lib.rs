@@ -4,6 +4,7 @@ pub mod app;
 pub mod axum;
 pub mod cache;
 pub mod download;
+pub mod search;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

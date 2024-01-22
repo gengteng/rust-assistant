@@ -11,7 +11,7 @@ serde = { workspace = true, features = ["derive", "rc"] }
 lru = "0.12.1"
 tokio = { workspace = true, features = ["full"] }
 reqwest = { version = "0.11.23", features = ["rustls-tls", "json"], default-features = false }
-syn = { version = "2.0.48", features = ["full"] }
+syn = { version = "2.0.48", features = ["full", "visit"] }
 proc-macro2 = {  version = "1.0.76", features = ["span-locations"] }
 tar = "0.4.40"
 flate2 = "1.0.28"
@@ -24,6 +24,7 @@ axum = { workspace = true, optional = true}
 axum-extra = { workspace = true, features = ["typed-header"], optional = true}
 utoipa = { version = "4.2.0", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"], optional = true }
+quote = "1.0.35"
 
 [features]
 axum = ["dep:axum", "dep:axum-extra", "utoipa-swagger-ui/axum"]
