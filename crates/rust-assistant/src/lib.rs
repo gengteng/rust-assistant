@@ -232,7 +232,7 @@ mod tests {
             mode: SearchMode::PlainText,
             case_sensitive: true,
             whole_word: true,
-            max_results: 6.try_into().expect("6"),
+            max_results: Some(6.try_into().expect("6")),
             file_ext: "rs".into(),
             path: Some(PathBuf::from("src")),
         })?;
