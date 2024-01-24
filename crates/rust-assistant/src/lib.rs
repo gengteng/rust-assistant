@@ -127,6 +127,8 @@ pub struct LineQuery {
     #[cfg_attr(feature = "utoipa", schema(value_type = usize))]
     pub max_results: NonZeroUsize,
     pub file_ext: Vec<String>,
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
+    pub path: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
@@ -142,7 +144,7 @@ pub struct Line {
     pub line: String,
     pub file: PathBuf,
     pub line_number: NonZeroUsize,
-    pub column_range: Range<usize>,
+    pub column_range: Range<NonZeroUsize>,
 }
 
 #[cfg(test)]
@@ -182,6 +184,17 @@ mod tests {
             .get_file_by_line_range("src/lib.rs", ..=NonZeroUsize::new(3).unwrap())?
             .unwrap();
         println!("[{}]", std::str::from_utf8(file.data.as_ref()).unwrap());
+
+        let lines = crate_.search_line(&LineQuery {
+            query: "Sleep".to_string(),
+            mode: SearchMode::PlainText,
+            case_sensitive: true,
+            whole_word: true,
+            max_results: 6.try_into().expect("6"),
+            file_ext: vec!["rs".into()],
+            path: Some(PathBuf::from("src")),
+        })?;
+        println!("{:#?}", lines);
         Ok(())
     }
 }

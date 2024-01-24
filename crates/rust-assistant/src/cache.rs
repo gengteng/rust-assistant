@@ -6,7 +6,7 @@ use bytes::{Bytes, BytesMut};
 use fnv::FnvHashMap;
 use lru::LruCache;
 use parking_lot::Mutex;
-use regex::Regex;
+use regex::RegexBuilder;
 use std::collections::BTreeSet;
 use std::io::{BufRead, Cursor, Read};
 use std::num::NonZeroUsize;
@@ -290,30 +290,60 @@ impl Crate {
 
     pub fn search_line(&self, query: &LineQuery) -> anyhow::Result<Vec<Line>> {
         let mut results = Vec::new();
+        let max_results = query.max_results.get();
 
-        let pattern = match query.mode {
-            SearchMode::PlainText => Regex::new(&regex::escape(&query.query))?,
-            SearchMode::Regex => Regex::new(&query.query)?,
+        let mut regex_pattern = match query.mode {
+            SearchMode::PlainText => regex::escape(&query.query),
+            SearchMode::Regex => query.query.clone(),
         };
 
+        // 如果需要全字匹配，则对模式进行相应包装
+        if query.whole_word {
+            regex_pattern = format!(r"\b{}\b", regex_pattern);
+        }
+
+        // 创建正则表达式，考虑大小写敏感设置
+        let pattern = RegexBuilder::new(&regex_pattern)
+            .case_insensitive(!query.case_sensitive)
+            .build()?;
+
         for (path, file_desc) in self.files_index.iter() {
-            if !query.file_ext.is_empty() && !query.file_ext.iter().any(|ext| path.ends_with(ext)) {
-                continue;
+            if let Some(query_path) = &query.path {
+                if !path.starts_with(query_path) {
+                    continue;
+                }
+            };
+            if !query.file_ext.is_empty() {
+                if let Some(extension) = path.extension() {
+                    if !query
+                        .file_ext
+                        .iter()
+                        .any(|ext| extension.eq_ignore_ascii_case(ext.as_str()))
+                    {
+                        continue;
+                    }
+                } else {
+                    // 如果路径没有扩展名，则跳过
+                    continue;
+                }
             }
 
             let content_range = file_desc.range.clone();
             let content = &self.data.slice(content_range);
 
             let cursor = Cursor::new(content);
+
             for (line_number, line) in cursor.lines().enumerate() {
                 let line = line?;
                 let Some(line_number) = NonZeroUsize::new(line_number + 1) else {
                     continue;
                 };
 
-                if let Some(column_range) =
-                    find_match(&line, &pattern, query.case_sensitive, query.whole_word)
-                {
+                // 使用 pattern 对每一行进行匹配
+                if let Some(mat) = pattern.find(&line) {
+                    let column_range = NonZeroUsize::new(mat.start() + 1).unwrap()
+                        ..NonZeroUsize::new(mat.end() + 1).unwrap();
+
                     let line_result = Line {
                         line,
                         file: path.clone(),
@@ -322,13 +352,13 @@ impl Crate {
                     };
                     results.push(line_result);
 
-                    if results.len() >= query.max_results.get() {
+                    if results.len() >= max_results {
                         break;
                     }
                 }
             }
 
-            if results.len() >= query.max_results.get() {
+            if results.len() >= max_results {
                 break;
             }
         }
@@ -488,50 +518,4 @@ impl CrateCache {
     ) -> Option<Crate> {
         self.lru.lock().put(crate_version.into(), krate.into())
     }
-}
-
-fn find_match(
-    line: &str,
-    pattern: &Regex,
-    case_sensitive: bool,
-    whole_word: bool,
-) -> Option<Range<usize>> {
-    // 如果需要区分大小写，我们会直接使用提供的模式。
-    // 否则，我们会将整行文本和模式转换为小写进行匹配。
-    let line_to_search = if case_sensitive {
-        line.to_string()
-    } else {
-        line.to_lowercase()
-    };
-    let pattern_to_search = if case_sensitive {
-        pattern.clone()
-    } else {
-        Regex::new(&pattern.as_str().to_lowercase()).unwrap()
-    };
-
-    // 遍历所有匹配项
-    for mat in pattern_to_search.find_iter(&line_to_search) {
-        let start = mat.start();
-        let end = mat.end();
-
-        // 检查是否为全词匹配
-        if whole_word {
-            // 确保匹配前后是词边界
-            if (start == 0
-                || !line_to_search
-                    .chars()
-                    .nth(start - 1)
-                    .unwrap()
-                    .is_alphanumeric())
-                && (end == line_to_search.len()
-                    || !line_to_search.chars().nth(end).unwrap().is_alphanumeric())
-            {
-                return Some(start..end);
-            }
-        } else {
-            return Some(start..end);
-        }
-    }
-
-    None
 }
