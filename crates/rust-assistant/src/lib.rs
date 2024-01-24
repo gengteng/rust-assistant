@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
-use std::ops::Range;
-use std::path::PathBuf;
+use std::ops::{Range, RangeInclusive};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(feature = "utoipa")]
@@ -118,33 +118,75 @@ pub struct ItemQuery {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
+pub struct Item {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub type_: ItemType,
+    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
+    pub file: Arc<Path>,
+    #[cfg_attr(feature = "utoipa", schema(value_type = RangeSchema))]
+    pub line_range: RangeInclusive<NonZeroUsize>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
+pub enum ItemType {
+    #[default]
+    All,
+    Struct,
+    Enum,
+    Trait,
+    ImplType,
+    ImplTraitForType,
+    Macro,
+    AttributeMacro,
+    Function,
+    TypeAlias,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct LineQuery {
     pub query: String,
     pub mode: SearchMode,
     #[serde(default)]
     pub case_sensitive: bool,
+    #[serde(default)]
     pub whole_word: bool,
     #[cfg_attr(feature = "utoipa", schema(value_type = usize))]
-    pub max_results: NonZeroUsize,
-    pub file_ext: Vec<String>,
+    pub max_results: Option<NonZeroUsize>,
+    #[serde(default)]
+    pub file_ext: String,
     #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
     pub path: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum SearchMode {
     PlainText,
     Regex,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Line {
     pub line: String,
+    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
     pub file: PathBuf,
+    #[cfg_attr(feature = "utoipa", schema(value_type = usize))]
     pub line_number: NonZeroUsize,
+    #[cfg_attr(feature = "utoipa", schema(value_type = RangeSchema))]
     pub column_range: Range<NonZeroUsize>,
+}
+
+#[cfg(feature = "utoipa")]
+#[derive(ToSchema)]
+pub struct RangeSchema {
+    pub start: usize,
+    pub end: usize,
 }
 
 #[cfg(test)]

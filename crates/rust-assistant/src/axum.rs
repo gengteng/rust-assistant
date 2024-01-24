@@ -16,15 +16,19 @@ use std::sync::Arc;
 /// Search a crate for lines.
 #[cfg_attr(feature = "utoipa",
 utoipa::path(get, path = "/api/lines/{crate}/{version}", responses(
-        (status = 200, description = "Search the crate for lines successfully.", body = [crate::Line]),
+        (status = 200, description = "Search the crate for lines successfully.", body = [Line]),
         (status = 500, description = "Internal server error.", body = String),
     ),
     params(
         ("crate" = String, Path, description = "The exact name of the crate."),
         ("version" = String, Path, description = "The semantic version number of the crate, following the Semantic versioning specification."),
-        ("type" = ItemType, Query, description = "The type of the item."),
         ("query" = String, Query, description = "Query string."),
-        ("path" = String, Query, description = "Directory containing the items to search."),
+        ("mode" = SearchMode, Query, description = "Search mode."),
+        ("case_sensitive" = Option<bool>, Query, description = "Case sensitive."),
+        ("whole_word" = Option<bool>, Query, description = "Whole word."),
+        ("max_results" = Option<usize>, Query, description = "Max results count."),
+        ("file_ext" = Option<usize>, Query, description = "The extensions of files to search."),
+        ("path" = Option<String>, Query, description = "Directory containing the lines to search."),
     ),
     security(
         ("api_auth" = [])
@@ -44,7 +48,7 @@ pub async fn search_crate_for_lines(
 /// Search a crate for items.
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/items/{crate}/{version}", responses(
-        (status = 200, description = "Search the crate for items successfully.", body = [crate::Item]),
+        (status = 200, description = "Search the crate for items successfully.", body = [Item]),
         (status = 500, description = "Internal server error.", body = String),
     ),
     params(
@@ -179,6 +183,7 @@ pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
     };
 
     let api = Router::new()
+        .route("/lines/:crate/:version", get(search_crate_for_lines))
         .route("/items/:crate/:version", get(search_crate_for_items))
         .route("/file/:crate/:version/*path", get(get_file_content))
         .nest(
@@ -277,9 +282,10 @@ mod swagger_ui {
         super::read_crate_directory,
         super::read_crate_root_directory,
         super::search_crate_for_items,
+        super::search_crate_for_lines,
     ),
     components(
-        schemas(crate::Directory, crate::Item, crate::ItemType)
+        schemas(crate::Directory, crate::Item, crate::ItemType, crate::SearchMode, crate::Line, crate::RangeSchema)
     ),
     modifiers(&SecurityAddon),
     tags(

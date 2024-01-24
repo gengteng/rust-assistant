@@ -1,51 +1,12 @@
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
-use std::ops::RangeInclusive;
 use std::path::Path;
 use std::sync::Arc;
 use syn::spanned::Spanned;
 use syn::{Attribute, ItemEnum, ItemFn, ItemImpl, ItemMacro, ItemStruct, ItemTrait};
 
-use crate::ItemQuery;
-#[cfg(feature = "utoipa")]
-use utoipa::ToSchema;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(ToSchema))]
-pub struct Item {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub type_: ItemType,
-    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
-    pub file: Arc<Path>,
-    #[cfg_attr(feature = "utoipa", schema(value_type = RangeSchema))]
-    pub line_range: RangeInclusive<NonZeroUsize>,
-}
-
-#[cfg(feature = "utoipa")]
-#[derive(ToSchema)]
-pub struct RangeSchema {
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[cfg_attr(feature = "utoipa", derive(ToSchema))]
-pub enum ItemType {
-    #[default]
-    All,
-    Struct,
-    Enum,
-    Trait,
-    ImplType,
-    ImplTraitForType,
-    Macro,
-    AttributeMacro,
-    Function,
-    TypeAlias,
-}
+use crate::{Item, ItemQuery, ItemType};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SearchIndexMut {

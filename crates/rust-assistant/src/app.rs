@@ -1,7 +1,8 @@
 use crate::cache::{Crate, CrateCache, CrateFileContent, CrateTar};
 use crate::download::CrateDownloader;
-use crate::search::Item;
-use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange, ItemQuery, Line, LineQuery};
+use crate::{
+    CrateVersion, CrateVersionPath, Directory, FileLineRange, Item, ItemQuery, Line, LineQuery,
+};
 
 #[derive(Clone, Default)]
 pub struct RustAssistant {

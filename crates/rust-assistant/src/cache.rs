@@ -1,6 +1,7 @@
-use crate::search::{Item, SearchIndex, SearchIndexBuilder};
+use crate::search::{SearchIndex, SearchIndexBuilder};
 use crate::{
-    CrateVersion, Directory, DirectoryMut, FileLineRange, ItemQuery, Line, LineQuery, SearchMode,
+    CrateVersion, Directory, DirectoryMut, FileLineRange, Item, ItemQuery, Line, LineQuery,
+    SearchMode,
 };
 use bytes::{Bytes, BytesMut};
 use fnv::FnvHashMap;
@@ -290,7 +291,12 @@ impl Crate {
 
     pub fn search_line(&self, query: &LineQuery) -> anyhow::Result<Vec<Line>> {
         let mut results = Vec::new();
-        let max_results = query.max_results.get();
+        let file_ext = query
+            .file_ext
+            .split(",")
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
 
         let mut regex_pattern = match query.mode {
             SearchMode::PlainText => regex::escape(&query.query),
@@ -313,12 +319,11 @@ impl Crate {
                     continue;
                 }
             };
-            if !query.file_ext.is_empty() {
+            if !file_ext.is_empty() {
                 if let Some(extension) = path.extension() {
-                    if !query
-                        .file_ext
+                    if !file_ext
                         .iter()
-                        .any(|ext| extension.eq_ignore_ascii_case(ext.as_str()))
+                        .any(|ext| extension.eq_ignore_ascii_case(ext))
                     {
                         continue;
                     }
@@ -352,14 +357,18 @@ impl Crate {
                     };
                     results.push(line_result);
 
-                    if results.len() >= max_results {
-                        break;
+                    if let Some(max_results) = query.max_results {
+                        if results.len() >= max_results.get() {
+                            break;
+                        }
                     }
                 }
             }
 
-            if results.len() >= max_results {
-                break;
+            if let Some(max_results) = query.max_results {
+                if results.len() >= max_results.get() {
+                    break;
+                }
             }
         }
 
