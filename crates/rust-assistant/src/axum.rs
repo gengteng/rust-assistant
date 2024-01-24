@@ -1,6 +1,6 @@
 use crate::app::RustAssistant;
 use crate::cache::{CrateFileContent, CrateFileDataType};
-use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemType};
+use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -11,15 +11,34 @@ use axum_extra::headers::authorization::Basic;
 use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QueryParam {
-    #[serde(rename = "type")]
-    pub type_: ItemType,
-    pub query: String,
-    pub path: Option<PathBuf>,
+/// Search a crate for lines.
+#[cfg_attr(feature = "utoipa",
+utoipa::path(get, path = "/api/lines/{crate}/{version}", responses(
+        (status = 200, description = "Search the crate for lines successfully.", body = [crate::Line]),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+    params(
+        ("crate" = String, Path, description = "The exact name of the crate."),
+        ("version" = String, Path, description = "The semantic version number of the crate, following the Semantic versioning specification."),
+        ("type" = ItemType, Query, description = "The type of the item."),
+        ("query" = String, Query, description = "Query string."),
+        ("path" = String, Query, description = "Directory containing the items to search."),
+    ),
+    security(
+        ("api_auth" = [])
+    )
+))]
+pub async fn search_crate_for_lines(
+    Path(crate_version): Path<CrateVersion>,
+    Query(query): Query<LineQuery>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state.search_line(&crate_version, query).await {
+        Ok(lines) => Json(lines).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
 }
 
 /// Search a crate for items.
@@ -41,13 +60,10 @@ pub struct QueryParam {
 ))]
 pub async fn search_crate_for_items(
     Path(crate_version): Path<CrateVersion>,
-    Query(param): Query<QueryParam>,
+    Query(query): Query<ItemQuery>,
     State(state): State<RustAssistant>,
 ) -> impl IntoResponse {
-    match state
-        .search(&crate_version, param.type_, &param.query, param.path)
-        .await
-    {
+    match state.search_item(&crate_version, query).await {
         Ok(items) => Json(items).into_response(),
         Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
     }

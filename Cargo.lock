@@ -1794,6 +1794,7 @@ dependencies = [
  "parking_lot",
  "proc-macro2",
  "quote",
+ "regex",
  "reqwest",
  "serde",
  "syn 2.0.48",

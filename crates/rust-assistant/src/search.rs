@@ -2,11 +2,12 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use syn::spanned::Spanned;
 use syn::{Attribute, ItemEnum, ItemFn, ItemImpl, ItemMacro, ItemStruct, ItemTrait};
 
+use crate::ItemQuery;
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
@@ -60,7 +61,8 @@ pub struct SearchIndexMut {
 }
 
 impl SearchIndexMut {
-    pub fn search(&self, type_: ItemType, query: &str, path: Option<PathBuf>) -> Vec<Item> {
+    pub fn search(&self, query: &ItemQuery) -> Vec<Item> {
+        let ItemQuery { type_, query, path } = query;
         let query = query.to_lowercase();
         let path = path.as_ref().map(|p| p.as_path());
         match type_ {

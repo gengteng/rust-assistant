@@ -1,8 +1,7 @@
 use crate::cache::{Crate, CrateCache, CrateFileContent, CrateTar};
 use crate::download::CrateDownloader;
-use crate::search::{Item, ItemType};
-use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange};
-use std::path::PathBuf;
+use crate::search::Item;
+use crate::{CrateVersion, CrateVersionPath, Directory, FileLineRange, ItemQuery, Line, LineQuery};
 
 #[derive(Clone, Default)]
 pub struct RustAssistant {
@@ -56,14 +55,23 @@ impl RustAssistant {
             .cloned())
     }
 
-    pub async fn search(
+    pub async fn search_item(
         &self,
         crate_version: &CrateVersion,
-        type_: ItemType,
-        query: &str,
-        path: Option<PathBuf>,
+        query: impl Into<ItemQuery>,
     ) -> anyhow::Result<Vec<Item>> {
         let krate = self.get_crate(crate_version).await?;
-        Ok(krate.search(type_, query, path))
+        let query = query.into();
+        Ok(tokio::task::spawn_blocking(move || krate.search_item(&query)).await?)
+    }
+
+    pub async fn search_line(
+        &self,
+        crate_version: &CrateVersion,
+        query: impl Into<LineQuery>,
+    ) -> anyhow::Result<Vec<Line>> {
+        let krate = self.get_crate(crate_version).await?;
+        let query = query.into();
+        tokio::task::spawn_blocking(move || krate.search_line(&query)).await?
     }
 }

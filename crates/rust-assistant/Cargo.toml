@@ -25,6 +25,7 @@ axum-extra = { workspace = true, features = ["typed-header"], optional = true}
 utoipa = { version = "4.2.0", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"], optional = true }
 quote = "1.0.35"
+regex = "1.10.2"
 
 [features]
 axum = ["dep:axum", "dep:axum-extra", "utoipa-swagger-ui/axum"]

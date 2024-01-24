@@ -10,12 +10,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
+pub use app::*;
 pub use search::*;
 
 /// The name and version of the crate.
@@ -103,6 +105,44 @@ impl DirectoryMut {
             directories: Arc::new(self.directories),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
+pub struct ItemQuery {
+    #[serde(rename = "type")]
+    pub type_: ItemType,
+    pub query: String,
+    pub path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
+pub struct LineQuery {
+    pub query: String,
+    pub mode: SearchMode,
+    #[serde(default)]
+    pub case_sensitive: bool,
+    pub whole_word: bool,
+    #[cfg_attr(feature = "utoipa", schema(value_type = usize))]
+    pub max_results: NonZeroUsize,
+    pub file_ext: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
+#[cfg_attr(feature = "utoipa", derive(ToSchema))]
+#[serde(rename = "kebab-case")]
+pub enum SearchMode {
+    PlainText,
+    Regex,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Line {
+    pub line: String,
+    pub file: PathBuf,
+    pub line_number: NonZeroUsize,
+    pub column_range: Range<usize>,
 }
 
 #[cfg(test)]

@@ -1,11 +1,14 @@
-use crate::search::{Item, ItemType, SearchIndex, SearchIndexBuilder};
-use crate::{CrateVersion, Directory, DirectoryMut, FileLineRange};
+use crate::search::{Item, SearchIndex, SearchIndexBuilder};
+use crate::{
+    CrateVersion, Directory, DirectoryMut, FileLineRange, ItemQuery, Line, LineQuery, SearchMode,
+};
 use bytes::{Bytes, BytesMut};
 use fnv::FnvHashMap;
 use lru::LruCache;
 use parking_lot::Mutex;
+use regex::Regex;
 use std::collections::BTreeSet;
-use std::io::Read;
+use std::io::{BufRead, Cursor, Read};
 use std::num::NonZeroUsize;
 use std::ops::{Bound, Range, RangeBounds};
 use std::path::{Path, PathBuf};
@@ -185,7 +188,7 @@ pub struct Crate {
     data: Bytes,
     files_index: Arc<FnvHashMap<PathBuf, CrateFileDataDesc>>,
     directories_index: Arc<FnvHashMap<PathBuf, Directory>>,
-    search_index: SearchIndex,
+    item_search_index: SearchIndex,
 }
 
 impl Crate {
@@ -281,8 +284,56 @@ impl Crate {
         self.directories_index.get(path.as_ref())
     }
 
-    pub fn search(&self, type_: ItemType, query: &str, path: Option<PathBuf>) -> Vec<Item> {
-        self.search_index.search(type_, query, path)
+    pub fn search_item(&self, query: &ItemQuery) -> Vec<Item> {
+        self.item_search_index.search(query)
+    }
+
+    pub fn search_line(&self, query: &LineQuery) -> anyhow::Result<Vec<Line>> {
+        let mut results = Vec::new();
+
+        let pattern = match query.mode {
+            SearchMode::PlainText => Regex::new(&regex::escape(&query.query))?,
+            SearchMode::Regex => Regex::new(&query.query)?,
+        };
+
+        for (path, file_desc) in self.files_index.iter() {
+            if !query.file_ext.is_empty() && !query.file_ext.iter().any(|ext| path.ends_with(ext)) {
+                continue;
+            }
+
+            let content_range = file_desc.range.clone();
+            let content = &self.data.slice(content_range);
+
+            let cursor = Cursor::new(content);
+            for (line_number, line) in cursor.lines().enumerate() {
+                let line = line?;
+                let Some(line_number) = NonZeroUsize::new(line_number + 1) else {
+                    continue;
+                };
+
+                if let Some(column_range) =
+                    find_match(&line, &pattern, query.case_sensitive, query.whole_word)
+                {
+                    let line_result = Line {
+                        line,
+                        file: path.clone(),
+                        line_number,
+                        column_range,
+                    };
+                    results.push(line_result);
+
+                    if results.len() >= query.max_results.get() {
+                        break;
+                    }
+                }
+            }
+
+            if results.len() >= query.max_results.get() {
+                break;
+            }
+        }
+
+        Ok(results)
     }
 }
 
@@ -397,7 +448,7 @@ impl TryFrom<CrateTar> for Crate {
             data: data.freeze(),
             files_index: Arc::new(files_index),
             directories_index: Arc::new(directories_index),
-            search_index: search_index_builder.finish(),
+            item_search_index: search_index_builder.finish(),
         })
     }
 }
@@ -437,4 +488,50 @@ impl CrateCache {
     ) -> Option<Crate> {
         self.lru.lock().put(crate_version.into(), krate.into())
     }
+}
+
+fn find_match(
+    line: &str,
+    pattern: &Regex,
+    case_sensitive: bool,
+    whole_word: bool,
+) -> Option<Range<usize>> {
+    // 如果需要区分大小写，我们会直接使用提供的模式。
+    // 否则，我们会将整行文本和模式转换为小写进行匹配。
+    let line_to_search = if case_sensitive {
+        line.to_string()
+    } else {
+        line.to_lowercase()
+    };
+    let pattern_to_search = if case_sensitive {
+        pattern.clone()
+    } else {
+        Regex::new(&pattern.as_str().to_lowercase()).unwrap()
+    };
+
+    // 遍历所有匹配项
+    for mat in pattern_to_search.find_iter(&line_to_search) {
+        let start = mat.start();
+        let end = mat.end();
+
+        // 检查是否为全词匹配
+        if whole_word {
+            // 确保匹配前后是词边界
+            if (start == 0
+                || !line_to_search
+                    .chars()
+                    .nth(start - 1)
+                    .unwrap()
+                    .is_alphanumeric())
+                && (end == line_to_search.len()
+                    || !line_to_search.chars().nth(end).unwrap().is_alphanumeric())
+            {
+                return Some(start..end);
+            }
+        } else {
+            return Some(start..end);
+        }
+    }
+
+    None
 }
