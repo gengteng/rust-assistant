@@ -233,7 +233,7 @@ mod tests {
             case_sensitive: true,
             whole_word: true,
             max_results: 6.try_into().expect("6"),
-            file_ext: vec!["rs".into()],
+            file_ext: "rs".into(),
             path: Some(PathBuf::from("src")),
         })?;
         println!("{:#?}", lines);
