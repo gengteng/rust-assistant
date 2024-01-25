@@ -1,8 +1,8 @@
 # Rust Assistant
 
-**Link**: https://chat.openai.com/g/g-u1O5yxYeW-rust-assistant
+<img src="./doc/icon.png" width = "200px" height = "200px" alt="图片名称" align=center />
 
-![icon](./doc/icon.png)
+**Link**: https://chat.openai.com/g/g-u1O5yxYeW-rust-assistant
 
 ## Name
 
