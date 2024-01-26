@@ -1,3 +1,5 @@
+//! The `axum` module.
+//!
 use crate::app::RustAssistant;
 use crate::cache::{CrateFileContent, CrateFileDataType};
 use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
