@@ -1,3 +1,10 @@
+//! The `search` module.
+//!
+//! Focused on providing search functionalities within crates. This module might contain
+//! implementations for searching through crate contents, such as source code files, documentation,
+//! and other relevant data. It could include various search algorithms and data structures optimized
+//! for quick and efficient search operations, like `SearchIndex`.
+//!
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
@@ -8,6 +15,11 @@ use syn::{Attribute, ItemEnum, ItemFn, ItemImpl, ItemMacro, ItemStruct, ItemTrai
 
 use crate::{Item, ItemQuery, ItemType};
 
+/// A mutable search index containing categorized items for searching within a crate.
+///
+/// This struct stores various items like structs, enums, traits, etc., in categorized hash maps,
+/// facilitating efficient search operations.
+///
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SearchIndexMut {
     pub structs: FnvHashMap<String, Vec<Item>>,
@@ -22,6 +34,8 @@ pub struct SearchIndexMut {
 }
 
 impl SearchIndexMut {
+    /// Searches for items within the index based on the provided query.
+    ///
     pub fn search(&self, query: &ItemQuery) -> Vec<Item> {
         let ItemQuery { type_, query, path } = query;
         let query = query.to_lowercase();
@@ -53,6 +67,8 @@ impl SearchIndexMut {
     }
 }
 
+/// Filters items from a hashmap based on a query and optional path.
+///
 fn filter_items(
     query: &str,
     items: &FnvHashMap<String, Vec<Item>>,
@@ -72,20 +88,29 @@ fn filter_items(
     }
 }
 
+/// Shared immutable search index, used for efficient read access across multiple threads.
 pub type SearchIndex = Arc<SearchIndexMut>;
 
 impl SearchIndexMut {
+    /// Freezes the mutable search index into an immutable one.
+    ///
     pub fn freeze(self) -> SearchIndex {
         Arc::new(self)
     }
 }
 
+/// A builder for constructing a `SearchIndex`.
+///
+/// This struct facilitates the creation and population of a `SearchIndexMut`
+/// by parsing Rust source files and adding items to the index.
 #[derive(Debug, Default)]
 pub struct SearchIndexBuilder {
     index: SearchIndexMut,
 }
 
 impl SearchIndexBuilder {
+    /// Updates the search index with items parsed from a Rust source file.
+    ///
     pub fn update<P: AsRef<Path>>(&mut self, file: P, content: &str) -> bool {
         let mut visitor = IndexVisitor::new(&mut self.index, file);
         if let Ok(ast) = syn::parse_file(content) {
@@ -96,17 +121,25 @@ impl SearchIndexBuilder {
         }
     }
 
+    /// Finalizes the construction of the `SearchIndex`.
+    ///
     pub fn finish(self) -> SearchIndex {
         self.index.freeze()
     }
 }
 
+/// A visitor struct for traversing and indexing Rust syntax trees.
+///
+/// This struct is used in conjunction with `syn::visit::Visit` to extract items from Rust source files
+/// and add them to a `SearchIndexMut`.
 pub struct IndexVisitor<'i> {
     index: &'i mut SearchIndexMut,
     current_file: Arc<Path>,
 }
 
 impl<'i> IndexVisitor<'i> {
+    /// Creates a new `IndexVisitor`.
+    ///
     pub fn new<P: AsRef<Path>>(index: &'i mut SearchIndexMut, current_file: P) -> Self {
         IndexVisitor {
             index,

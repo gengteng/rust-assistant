@@ -1,3 +1,10 @@
+//! The `cache` module.
+//!
+//! This module provides caching functionalities to optimize performance and reduce
+//! redundant operations, particularly in the context of downloading and storing crate data.
+//! It may include structures like `CrateCache` to store downloaded crates and their metadata
+//! for quick retrieval.
+//!
 use crate::search::{SearchIndex, SearchIndexBuilder};
 use crate::{
     CrateVersion, Directory, DirectoryMut, FileLineRange, Item, ItemQuery, Line, LineQuery,
@@ -16,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tar::EntryType;
 
+/// Represents a tarball of a crate, including version information and tar data.
 #[derive(Clone)]
 pub struct CrateTar {
     pub crate_version: CrateVersion,
@@ -36,7 +44,8 @@ where
 }
 
 impl CrateTar {
-    /// Get file content
+    /// Retrieves the content of a specified file within the crate tarball.
+    ///
     pub fn get_file(&self, file: &str) -> anyhow::Result<Option<String>> {
         let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let entries = archive.entries()?;
@@ -59,7 +68,8 @@ impl CrateTar {
         Ok(None)
     }
 
-    /// Get file content by range
+    /// Retrieves the content of a specified file within a range.
+    ///
     pub fn get_file_by_range(
         &self,
         file: &str,
@@ -101,7 +111,8 @@ impl CrateTar {
         Ok(None)
     }
 
-    /// List all files in a crate
+    /// Lists all files in the crate within a specified range.
+    ///
     pub fn get_all_file_list(
         &self,
         range: impl RangeBounds<usize>,
@@ -130,6 +141,8 @@ impl CrateTar {
         Ok(Some(list))
     }
 
+    /// Reads the contents of a directory within the crate.
+    ///
     pub fn read_directory<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<Option<Directory>> {
         let mut archive = tar::Archive::new(self.tar_data.as_slice());
         let base_dir = self.crate_version.root_dir().join(path);
@@ -165,25 +178,46 @@ impl CrateTar {
     }
 }
 
+/// Enumerates the possible data formats of a crate file.
+///
+/// This enum helps in distinguishing between different text encoding formats of the files contained in a crate.
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum CrateFileDataType {
+    /// Represents a UTF-8 formatted file.
     Utf8,
+    /// Represents a non-UTF-8 formatted file.
     #[default]
     NonUtf8,
 }
 
+/// Describes a crate file with its data type and range in the crate's data buffer.
+///
+/// This struct is used to quickly access the file's content and its encoding format.
+///
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct CrateFileDataDesc {
+    /// The data type of the file (UTF-8 or Non-UTF-8).
     pub data_type: CrateFileDataType,
+    /// The byte range of the file content within the crate's data buffer.
     pub range: Range<usize>,
 }
 
+/// Contains the actual content of a file within a crate.
+///
+/// This struct holds the file data and its data type, which is useful for encoding-specific operations.
 #[derive(Debug, Clone)]
 pub struct CrateFileContent {
+    /// The data type of the file.
     pub data_type: CrateFileDataType,
+    /// The byte content of the file.
     pub data: Bytes,
 }
 
+/// Represents a crate with its data and indexes for quick access to its contents.
+///
+/// This struct stores the complete data of a crate and provides indexes for accessing individual files,
+/// directories, and search functionalities within the crate.
+///
 #[derive(Debug, Clone)]
 pub struct Crate {
     data: Bytes,
@@ -193,6 +227,8 @@ pub struct Crate {
 }
 
 impl Crate {
+    /// Retrieves the content of a file by specifying a line range.
+    ///
     pub fn get_file_by_file_line_range<P: AsRef<Path>>(
         &self,
         file: P,
@@ -205,6 +241,11 @@ impl Crate {
             (None, None) => self.get_file_by_line_range(file, ..),
         }
     }
+
+    /// Retrieves the content of a file by specifying a line range.
+    ///
+    /// This method is used to extract a specific range of lines from a file in the crate.
+    ///
     pub fn get_file_by_line_range<P: AsRef<Path>>(
         &self,
         file: P,
@@ -281,14 +322,20 @@ impl Crate {
         Ok(None)
     }
 
+    /// Reads the content of a specified directory within the crate.
+    ///
     pub fn read_directory<P: AsRef<Path>>(&self, path: P) -> Option<&Directory> {
         self.directories_index.get(path.as_ref())
     }
 
+    /// Searches for items in the crate based on a given query.
+    ///
     pub fn search_item(&self, query: &ItemQuery) -> Vec<Item> {
         self.item_search_index.search(query)
     }
 
+    /// Searches for lines in the crate's files based on a given query.
+    ///
     pub fn search_line(&self, query: &LineQuery) -> anyhow::Result<Vec<Line>> {
         let mut results = Vec::new();
         let file_ext = query
@@ -492,6 +539,9 @@ impl TryFrom<CrateTar> for Crate {
     }
 }
 
+/// A cache for storing and retrieving `Crate` instances to minimize redundant operations.
+///
+/// This cache uses a least-recently-used (LRU) strategy and is thread-safe.
 #[derive(Clone)]
 pub struct CrateCache {
     lru: Arc<Mutex<LruCache<CrateVersion, Crate, fnv::FnvBuildHasher>>>,
@@ -504,7 +554,8 @@ impl Default for CrateCache {
 }
 
 impl CrateCache {
-    /// Create a new cache instance.
+    /// Creates a new `CrateCache` with a specified capacity.
+    ///
     pub fn new(capacity: NonZeroUsize) -> Self {
         CrateCache {
             lru: Arc::new(Mutex::new(LruCache::with_hasher(
@@ -514,12 +565,14 @@ impl CrateCache {
         }
     }
 
-    /// Get crate
+    /// Retrieves a crate from the cache if it exists.
+    ///
     pub fn get_crate(&self, crate_version: &CrateVersion) -> Option<Crate> {
         self.lru.lock().get(crate_version).cloned()
     }
 
-    /// Set crate
+    /// Inserts or updates a crate in the cache.
+    ///
     pub fn set_crate(
         &self,
         crate_version: impl Into<CrateVersion>,
