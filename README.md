@@ -97,7 +97,7 @@
 
 ## Capabilities
 
-* [x] Web Browsing
+* [ ] Web Browsing
 * [x] DALL·E Image Generation
 * [x] Code Interpreter
   
@@ -711,6 +711,14 @@ Schema:
 ```
 
 Privacy Policy: `https://rust-assistant-shuttle.shuttleapp.rs/privacy-policy`
+
+### Webpilot
+
+Schema: 
+
+* Import from URL `https://gpts.webpilot.ai/gpts-openapi.yaml`
+
+Privacy Policy: `https://gpts.webpilot.ai/privacy_policy.html`
 
 ## Additional Settings
 
