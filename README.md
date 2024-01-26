@@ -2,7 +2,8 @@
 
 <img src="./doc/icon.png" width = "200px" height = "200px" alt="icon"/>
 
-**Link**: https://chat.openai.com/g/g-u1O5yxYeW-rust-assistant
+* **Link**: https://chat.openai.com/g/g-u1O5yxYeW-rust-assistant
+* **Dev Link**: https://chat.openai.com/g/g-HpGXsDffm-rust-assistant-dev
 
 ## Name
 
