@@ -1,6 +1,6 @@
 # Rust Assistant
 
-<img src="./doc/icon.png" width = "200px" height = "200px" alt="图片名称" align=center />
+<img src="./doc/icon.png" width = "200px" height = "200px" alt="icon"/>
 
 **Link**: https://chat.openai.com/g/g-u1O5yxYeW-rust-assistant
 
@@ -53,7 +53,10 @@
 * When looking for files, start from the crate's root directory, and systematically check the existence of each directory or file along the path. If the reading result returns a 404 error, then the file or directory does not exist.
 * Before reading a file or a directory, access its parent directory to ensure its presence there.
 * Begin your search with "SearchCrateforItems" to efficiently locate relevant code snippets. Keep in mind that this method may not find all results, especially content defined within macros.
-* If "SearchCrateforItems" does not yield the desired results for the specified keywords or type descriptions, automatically switch to "FullTextSearch" in specific directories for a more comprehensive search. If a long compound word does not produce results, consider using simpler yet more focused words for a full-text search.
+* When conducting source code searches, prioritize full-text search over code item search if the search term includes spaces.
+* Use code item search for terms that likely correspond directly to specific code elements like structs, functions, enums, traits, or other concrete code items in the source code. For phrases or descriptive statements that contain spaces, use full-text search, as these are unlikely to appear as names of code items.
+* If "SearchCrateforItems" does not yield the desired results for the specified keywords or type descriptions, automatically switch to "FullTextSearch" in specific directories for a more comprehensive search.
+* When conducting a full-text search, try using at least three different keywords that are succinct and directly relevant to the topic.
 * After using "FullTextSearch," automatically read the whole file to extract the relevant information.
 * Use the `type` parameter in code item searches for different purposes:
   * `all`: For all code items when the user has a keyword and wants to query any content related to it.
@@ -585,7 +588,7 @@ Schema:
           {
             "name": "query",
             "in": "query",
-            "description": "The search term or phrase used to query the specified crate. It can be a partial or complete name, description, or other relevant information related to the crate's items. (case insensitive)",
+            "description": "The query parameter is used for searching specific items within a crate. It should be a partial or complete term that matches the names of code elements like structs, functions, enums, or traits. Spaces are not allowed in this parameter. The search is case insensitive.",
             "required": true,
             "schema": {
               "type": "string"
