@@ -15,7 +15,11 @@ use axum_extra::TypedHeader;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// Search a crate for lines.
+/// Search for lines in a specific crate.
+///
+/// This asynchronous function handles GET requests to search for lines within a crate's files.
+/// It extracts crate version and line query parameters from the request, performs the search, and returns the results.
+///
 #[cfg_attr(feature = "utoipa",
 utoipa::path(get, path = "/api/lines/{crate}/{version}", responses(
         (status = 200, description = "Search the crate for lines successfully.", body = [Line]),
@@ -47,7 +51,11 @@ pub async fn search_crate_for_lines(
     }
 }
 
-/// Search a crate for items.
+/// Search for items in a specific crate.
+///
+/// This function provides an API endpoint to search for various items like structs, enums,
+/// functions, etc., within a crate. It uses query parameters to filter search results.
+///
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/items/{crate}/{version}", responses(
         (status = 200, description = "Search the crate for items successfully.", body = [Item]),
@@ -75,7 +83,11 @@ pub async fn search_crate_for_items(
     }
 }
 
-/// Read file in crate.
+/// Get the content of a file in a crate.
+///
+/// This function serves an endpoint to retrieve the content of a specific file from a crate,
+/// potentially within a specified range of lines.
+///
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/file/{crate}/{version}/{path}", responses(
         (status = 200, description = "Read the file successfully.", body = String),
@@ -105,7 +117,11 @@ pub async fn get_file_content(
     }
 }
 
-/// Read a subdirectory in crate.
+/// Read a subdirectory in a crate.
+///
+/// This endpoint provides access to the contents of a subdirectory within a crate,
+/// including files and other subdirectories.
+///
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/directory/{crate}/{version}/{path}", responses(
         (status = 200, description = "Read the subdirectory successfully.", body = Directory),
@@ -164,12 +180,25 @@ pub async fn read_crate_root_directory(
     }
 }
 
+/// Health check endpoint.
+///
+/// This endpoint is used to perform a health check of the API, ensuring that it is running and responsive.
+///
 pub async fn health() {}
 
+/// Privacy policy endpoint.
+///
+/// This endpoint provides access to the privacy policy of the Rust Assistant application.
+///
 pub async fn privacy_policy() -> impl IntoResponse {
     include_str!("../../../doc/privacy-policy.md")
 }
 
+/// Configures and returns the axum router for the API.
+///
+/// This function sets up the routing for the API, including all the endpoints for searching crates,
+/// reading file contents, and accessing directory information. It also configures any necessary middleware.
+///
 pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
     let main = Router::new()
         .route("/", get(health))
@@ -222,13 +251,21 @@ impl IntoResponse for CrateFileContent {
     }
 }
 
+/// Authentication information structure.
+///
+/// This struct holds authentication credentials, such as username and password, used for API access.
+///
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AuthInfo {
+    /// Username for authentication.
     pub username: Arc<str>,
+    /// Password for authentication.
     pub password: Arc<str>,
 }
 
 impl AuthInfo {
+    /// Validates the provided basic authentication against the stored credentials.
+    ///
     pub fn check(&self, basic: &Basic) -> bool {
         self.username.as_ref().eq(basic.username()) && self.password.as_ref().eq(basic.password())
     }
@@ -247,6 +284,11 @@ where
     }
 }
 
+/// Middleware for API authentication.
+///
+/// This struct is used as a middleware in Axum routes to require authentication
+/// for accessing certain endpoints.
+///
 pub struct RequireAuth;
 
 #[axum::async_trait]
