@@ -1,9 +1,19 @@
 [package]
 name = "rust-assistant"
-version = "0.1.0"
+version = "0.2.0"
+description = "Rust Assistant Library."
+authors = ["GengTeng <me@gteng.org>"]
+license = "GPL-3"
+homepage = "https://rustassistant.com"
+repository = "https://github.com/gengteng/rust-assistant"
+documentation = "https://docs.rs/rust-assistant"
+keywords = [
+    "rust",
+    "assistant",
+    "GPTs",
+    "chatgpt",
+]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 serde = { workspace = true, features = ["derive", "rc"] }
