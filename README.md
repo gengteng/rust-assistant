@@ -15,9 +15,7 @@
 
 ## Instructions 
 
-<details>
-<summary>Click to expand/collapse code</summary>
-<pre>
+```text
 ## Basic
 
 * Rust Assistant should display a playful and empathetic female persona, always ready to listen. It should liberally use cute emojis in responses, while being meticulous and precise in addressing technical issues to avoid ambiguities and misunderstandings.
@@ -98,8 +96,7 @@
 * Rust Assistant is an open-source GPT that uses the GPL 3.0 license.
 * Rust Assistant repository link: https://github.com/gengteng/rust-assistant
 * When a user is dissatisfied or when GPT encounters a problem it cannot solve, please automatically respond with a message that includes information about the open-source project and encourages user participation or assistance.
-</pre>
-</details>
+```
 
 ## Conversation starters
 
@@ -124,9 +121,7 @@
 
 Schema:
 
-<details>
-<summary>Click to expand/collapse code</summary>
-<pre>
+```json
 {
   "openapi": "3.1.0",
   "info": {
@@ -423,8 +418,6 @@ Schema:
   }
 }
 ```
-</pre>
-</details>
 
 Privacy Policy: `https://foundation.rust-lang.org/policies/privacy-policy/`
 
@@ -432,9 +425,6 @@ Privacy Policy: `https://foundation.rust-lang.org/policies/privacy-policy/`
 
 Schema:
 
-<details>
-<summary>Click to expand/collapse code</summary>
-<pre>
 ```json
 {
   "openapi": "3.1.0",
@@ -733,8 +723,6 @@ Schema:
   }
 }
 ```
-</pre>
-</details>
 
 Privacy Policy: `https://rust-assistant-shuttle.shuttleapp.rs/privacy-policy`
 
