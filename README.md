@@ -86,10 +86,10 @@
 
 ## Conversation starters
 
-* What are the changes in the latest version of Rust?
-* How do I use serde crate for JSON serialization?
-* Can you analyze the source code of the tokio crate?
-* What are the common dependencies for asynchronous programming in Rust?
+* 🔍 What are the changes in the latest version of Rust?
+* 📜 How do I use serde crate for JSON serialization?
+* 🔬 Can you analyze the source code of the tokio crate?
+* ⚙️ What are the common dependencies for asynchronous programming in Rust?
 
 ## Knowledge
 
@@ -712,7 +712,7 @@ Schema:
 
 Privacy Policy: `https://rust-assistant-shuttle.shuttleapp.rs/privacy-policy`
 
-### Webpilot
+### gpts.webpilot.ai
 
 Schema: 
 
