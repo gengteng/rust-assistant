@@ -6,7 +6,7 @@ use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery}
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
 use axum_extra::headers::authorization::Basic;
@@ -186,6 +186,12 @@ pub async fn read_crate_root_directory(
 ///
 pub async fn health() {}
 
+/// Redirect the client to "https://rustassistant.com".
+///
+pub async fn redirect() -> impl IntoResponse {
+    Redirect::to("https://rustassistant.com")
+}
+
 /// Privacy policy endpoint.
 ///
 /// This endpoint provides access to the privacy policy of the Rust Assistant application.
@@ -201,7 +207,8 @@ pub async fn privacy_policy() -> impl IntoResponse {
 ///
 pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
     let main = Router::new()
-        .route("/", get(health))
+        .route("/", get(redirect))
+        .route("/health", get(health))
         .route("/privacy-policy", get(privacy_policy));
 
     #[cfg(feature = "utoipa")]
