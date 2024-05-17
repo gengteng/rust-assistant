@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-shuttle-axum = "0.37.0"
-shuttle-runtime = "0.37.0"
+shuttle-axum = "0.45.0"
+shuttle-runtime = "0.45.0"
 
-rust-assistant = { path = "../rust-assistant", features = ["axum"]}
-shuttle-secrets = "0.37.0"
+rust-assistant = { path = "../rust-assistant", features = ["axum"] }

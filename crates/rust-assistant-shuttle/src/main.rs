@@ -3,7 +3,7 @@ use shuttle_runtime::CustomError;
 
 #[shuttle_runtime::main]
 async fn main(
-    #[shuttle_secrets::Secrets] secret_store: shuttle_secrets::SecretStore,
+    #[shuttle_runtime::Secrets] secret_store: shuttle_runtime::SecretStore,
 ) -> shuttle_axum::ShuttleAxum {
     let Some(username) = secret_store.get("API_USERNAME") else {
         return Err(shuttle_runtime::Error::Custom(CustomError::msg(
