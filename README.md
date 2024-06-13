@@ -11,9 +11,9 @@
 
 ## Description
 
-`Your go-to expert in the Rust ecosystem, specializing in precise code interpretation, up-to-date crate version checking, and in-depth source code analysis. I offer accurate, context-aware insights for all your Rust programming questions.`. 
+`Your go-to expert in the Rust ecosystem, specializing in precise code interpretation, up-to-date crate version checking, and in-depth source code analysis. I offer accurate, context-aware insights for all your Rust programming questions.`.
 
-## Instructions 
+## Instructions
 
 ```text
 ## Basic
@@ -111,10 +111,10 @@
 
 ## Capabilities
 
-* [ ] Web Browsing
+* [x] Web Browsing
 * [x] DALL·E Image Generation
 * [x] Code Interpreter
-  
+
 ## Actions
 
 ### crates.io
@@ -556,6 +556,105 @@ Schema:
         "deprecated": false
       }
     },
+    "/api/github/directory/{owner}/{repo}": {
+      "get": {
+        "description": "Read the root directory of a GitHub repository.",
+        "operationId": "ReadGithubRepositoryRootDirectory",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "description": "The owner of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "description": "The name of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/api/github/directory/{crate}/{version}/{path}": {
+      "get": {
+        "description": "Read a subdirectory in a GitHub repository.",
+        "operationId": "ReadGithubRepositorySubdirectory",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "description": "The owner of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "description": "The name of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "description": "Relative path of a directory in the repository",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/api/github/file/{crate}/{version}/{path}": {
+      "get": {
+        "description": "Read the content of a file in a GitHub repository.",
+        "operationId": "ReadGithubRepositoryFile",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "description": "The owner of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "description": "The name of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "description": "Relative path of a file in the repository",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/api/items/{crate}/{version}": {
       "get": {
         "description": "Enables efficient but not comprehensive search of code items like structs, enums, traits, and more in a specific crate version, providing documentation for the found items using an index-based approach. Note: Searches don't include items defined within macros.",
@@ -725,14 +824,6 @@ Schema:
 ```
 
 Privacy Policy: `https://rust-assistant-shuttle.shuttleapp.rs/privacy-policy`
-
-### gpts.webpilot.ai
-
-Schema: 
-
-* Import from URL `https://gpts.webpilot.ai/gpts-openapi.yaml`
-
-Privacy Policy: `https://gpts.webpilot.ai/privacy_policy.html`
 
 ## Additional Settings
 
