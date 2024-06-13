@@ -15,5 +15,10 @@ async fn main(
             "'API_PASSWORD' must be provided",
         )));
     };
-    Ok(rust_assistant::axum::router(AuthInfo::from((username, password))).into())
+    let Some(github_token) = secret_store.get("GITHUB_ACCESS_TOKEN") else {
+        return Err(shuttle_runtime::Error::Custom(CustomError::msg(
+            "'GITHUB_ACCESS_TOKEN' must be provided",
+        )));
+    };
+    Ok(rust_assistant::axum::router(AuthInfo::from((username, password)), &github_token)?.into())
 }

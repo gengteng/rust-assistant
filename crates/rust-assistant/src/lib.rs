@@ -31,6 +31,7 @@ pub mod app;
 pub mod axum;
 pub mod cache;
 pub mod download;
+pub mod github;
 pub mod search;
 
 use serde::{Deserialize, Serialize};
@@ -142,8 +143,8 @@ impl Directory {
 
 #[derive(Debug, Default)]
 pub struct DirectoryMut {
-    files: BTreeSet<PathBuf>,
-    directories: BTreeSet<PathBuf>,
+    pub files: BTreeSet<PathBuf>,
+    pub directories: BTreeSet<PathBuf>,
 }
 
 impl DirectoryMut {

@@ -1,7 +1,9 @@
 //! The `axum` module.
 //!
 use crate::app::RustAssistant;
-use crate::cache::{CrateFileContent, CrateFileDataType};
+use crate::cache::{CrateCache, FileContent, FileDataType};
+use crate::download::CrateDownloader;
+use crate::github::{GithubClient, Repository, RepositoryPath};
 use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
@@ -180,6 +182,104 @@ pub async fn read_crate_root_directory(
     }
 }
 
+/// Read the root directory of a GitHub repository.
+///
+/// This endpoint provides access to the contents of the root directory within a GitHub repository,
+///
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/directory/{owner}/{repo}", responses(
+        (status = 200, description = "Read repository root directory successfully.", body = Directory),
+        (status = 404, description = "The root directory does not exist."),
+        (status = 500, description = "Internal server error."),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn read_github_repository_root_directory(
+    Path(repository): Path<Repository>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .read_github_repository_directory(&repository, "")
+        .await
+    {
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Ok(Some(directory)) => Json(directory).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
+/// Read a subdirectory in a GitHub repository.
+///
+/// This endpoint provides access to the contents of a subdirectory within a GitHub repository,
+/// including files and other subdirectories.
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/directory/{owner}/{repo}/{path}", responses(
+        (status = 200, description = "Read the subdirectory successfully.", body = Directory),
+        (status = 404, description = "The directory does not exist."),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+            ("path" = String, Path, description = "Relative path of a directory in repository."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn read_github_repository_directory(
+    Path(repository_path): Path<RepositoryPath>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .read_github_repository_directory(&repository_path.repo, repository_path.path.as_ref())
+        .await
+    {
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Ok(Some(directory)) => Json(directory).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
+/// Read the content of a file in a GitHub repository.
+///
+/// This function serves an endpoint to retrieve the content of a specific file from a GitHub repository.
+///
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/file/{owner}/{repo}/{path}", responses(
+        (status = 200, description = "Read the file successfully.", body = String),
+        (status = 404, description = "The file does not exist."),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+            ("path" = String, Path, description = "Relative path of a file in repository."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn read_github_repository_file_content(
+    Path(repository_path): Path<RepositoryPath>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .read_github_repository_file(&repository_path.repo, repository_path.path.as_ref())
+        .await
+    {
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Ok(Some(file)) => file.into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
 /// Health check endpoint.
 ///
 /// This endpoint is used to perform a health check of the API, ensuring that it is running and responsive.
@@ -205,7 +305,10 @@ pub async fn privacy_policy() -> impl IntoResponse {
 /// This function sets up the routing for the API, including all the endpoints for searching crates,
 /// reading file contents, and accessing directory information. It also configures any necessary middleware.
 ///
-pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
+pub fn router(
+    auth_info: impl Into<Option<AuthInfo>>,
+    github_token: &str,
+) -> anyhow::Result<Router> {
     let main = Router::new()
         .route("/", get(redirect))
         .route("/health", get(health))
@@ -230,7 +333,25 @@ pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
                 .route("/", get(read_crate_root_directory))
                 .route("/*path", get(read_crate_directory)),
         )
-        .with_state(RustAssistant::default());
+        .nest(
+            "/github",
+            Router::new()
+                .nest(
+                    "/directory/:owner/:repo",
+                    Router::new()
+                        .route("/", get(read_github_repository_root_directory))
+                        .route("/*path", get(read_github_repository_directory)),
+                )
+                .route(
+                    "/file/:owner/:repo/*path",
+                    get(read_github_repository_file_content),
+                ),
+        )
+        .with_state(RustAssistant::from((
+            CrateDownloader::default(),
+            CrateCache::default(),
+            GithubClient::new(github_token, None)?,
+        )));
 
     let api = if let Some(auth_info) = auth_info.into() {
         api.layer(axum::middleware::from_extractor::<RequireAuth>())
@@ -239,14 +360,14 @@ pub fn router(auth_info: impl Into<Option<AuthInfo>>) -> Router {
         api
     };
 
-    main.nest("/api", api)
+    Ok(main.nest("/api", api))
 }
 
-impl IntoResponse for CrateFileContent {
+impl IntoResponse for FileContent {
     fn into_response(self) -> Response {
         let content_type = match self.data_type {
-            CrateFileDataType::Utf8 => "text/plain; charset=utf-8",
-            CrateFileDataType::NonUtf8 => "application/octet-stream",
+            FileDataType::Utf8 => "text/plain; charset=utf-8",
+            FileDataType::NonUtf8 => "application/octet-stream",
         };
 
         let mut headers = HeaderMap::new();
@@ -334,6 +455,9 @@ mod swagger_ui {
         super::read_crate_root_directory,
         super::search_crate_for_items,
         super::search_crate_for_lines,
+        super::read_github_repository_root_directory,
+        super::read_github_repository_directory,
+        super::read_github_repository_file_content,
     ),
     components(
         schemas(crate::Directory, crate::Item, crate::ItemType, crate::SearchMode, crate::Line, crate::RangeSchema)

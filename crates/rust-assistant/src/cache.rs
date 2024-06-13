@@ -182,7 +182,7 @@ impl CrateTar {
 ///
 /// This enum helps in distinguishing between different text encoding formats of the files contained in a crate.
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum CrateFileDataType {
+pub enum FileDataType {
     /// Represents a UTF-8 formatted file.
     Utf8,
     /// Represents a non-UTF-8 formatted file.
@@ -197,7 +197,7 @@ pub enum CrateFileDataType {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct CrateFileDataDesc {
     /// The data type of the file (UTF-8 or Non-UTF-8).
-    pub data_type: CrateFileDataType,
+    pub data_type: FileDataType,
     /// The byte range of the file content within the crate's data buffer.
     pub range: Range<usize>,
 }
@@ -206,11 +206,24 @@ pub struct CrateFileDataDesc {
 ///
 /// This struct holds the file data and its data type, which is useful for encoding-specific operations.
 #[derive(Debug, Clone)]
-pub struct CrateFileContent {
+pub struct FileContent {
     /// The data type of the file.
-    pub data_type: CrateFileDataType,
+    pub data_type: FileDataType,
     /// The byte content of the file.
     pub data: Bytes,
+}
+
+impl From<Bytes> for FileContent {
+    fn from(data: Bytes) -> Self {
+        FileContent {
+            data_type: if std::str::from_utf8(data.as_ref()).is_ok() {
+                FileDataType::Utf8
+            } else {
+                FileDataType::NonUtf8
+            },
+            data,
+        }
+    }
 }
 
 /// Represents a crate with its data and indexes for quick access to its contents.
@@ -233,7 +246,7 @@ impl Crate {
         &self,
         file: P,
         FileLineRange { start, end }: FileLineRange,
-    ) -> anyhow::Result<Option<CrateFileContent>> {
+    ) -> anyhow::Result<Option<FileContent>> {
         match (start, end) {
             (Some(start), Some(end)) => self.get_file_by_line_range(file, start..=end),
             (Some(start), None) => self.get_file_by_line_range(file, start..),
@@ -250,7 +263,7 @@ impl Crate {
         &self,
         file: P,
         line_range: impl RangeBounds<NonZeroUsize>,
-    ) -> anyhow::Result<Option<CrateFileContent>> {
+    ) -> anyhow::Result<Option<FileContent>> {
         let file = file.as_ref();
         let Some(CrateFileDataDesc { range, data_type }) = self.files_index.get(file) else {
             return Ok(None);
@@ -262,13 +275,13 @@ impl Crate {
             (line_range.start_bound(), line_range.end_bound()),
             (Bound::Unbounded, Bound::Unbounded)
         ) {
-            return Ok(Some(CrateFileContent {
+            return Ok(Some(FileContent {
                 data,
                 data_type: *data_type,
             }));
         }
 
-        if let CrateFileDataType::NonUtf8 = data_type {
+        if let FileDataType::NonUtf8 = data_type {
             anyhow::bail!("Non-UTF8 formatted files do not support line-range querying.");
         }
 
@@ -313,8 +326,8 @@ impl Crate {
 
         if line_start < line_end {
             let line_bytes_range = range.start + line_start..range.start + line_end;
-            return Ok(Some(CrateFileContent {
-                data_type: CrateFileDataType::Utf8,
+            return Ok(Some(FileContent {
+                data_type: FileDataType::Utf8,
                 data: self.data.slice(line_bytes_range),
             }));
         }
@@ -467,9 +480,9 @@ impl TryFrom<CrateTar> for Crate {
                         if is_rust_src {
                             search_index_builder.update(path.as_path(), utf8_src);
                         }
-                        CrateFileDataType::Utf8
+                        FileDataType::Utf8
                     }
-                    Err(_) => CrateFileDataType::NonUtf8,
+                    Err(_) => FileDataType::NonUtf8,
                 };
 
                 let range = data.len()..data.len() + buffer.len();

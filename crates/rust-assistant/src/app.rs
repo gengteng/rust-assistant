@@ -5,8 +5,9 @@
 //! and running the application, handling high-level operations, and coordinating
 //! between other modules.
 //!
-use crate::cache::{Crate, CrateCache, CrateFileContent, CrateTar};
+use crate::cache::{Crate, CrateCache, CrateTar, FileContent};
 use crate::download::CrateDownloader;
+use crate::github::{GithubClient, Repository};
 use crate::{
     CrateVersion, CrateVersionPath, Directory, FileLineRange, Item, ItemQuery, Line, LineQuery,
 };
@@ -15,17 +16,21 @@ use crate::{
 ///
 /// This struct encapsulates methods for downloading crates, reading their content,
 /// and performing searches within them.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RustAssistant {
     downloader: CrateDownloader,
     cache: CrateCache,
+    github: GithubClient,
 }
 
-impl From<(CrateDownloader, CrateCache)> for RustAssistant {
-    /// Constructs a `RustAssistant` from a `CrateDownloader` and `CrateCache`.
-    ///
-    fn from((downloader, cache): (CrateDownloader, CrateCache)) -> Self {
-        Self { downloader, cache }
+impl From<(CrateDownloader, CrateCache, GithubClient)> for RustAssistant {
+    /// Creates a new `RustAssistant` instance from a tuple of dependencies.
+    fn from((downloader, cache, github): (CrateDownloader, CrateCache, GithubClient)) -> Self {
+        Self {
+            downloader,
+            cache,
+            github,
+        }
     }
 }
 
@@ -65,7 +70,7 @@ impl RustAssistant {
         &self,
         crate_version_path: &CrateVersionPath,
         file_line_range: FileLineRange,
-    ) -> anyhow::Result<Option<CrateFileContent>> {
+    ) -> anyhow::Result<Option<FileContent>> {
         let krate = self.get_crate(&crate_version_path.crate_version).await?;
 
         let path = crate_version_path.path.clone();
@@ -126,5 +131,29 @@ impl RustAssistant {
         let krate = self.get_crate(crate_version).await?;
         let query = query.into();
         tokio::task::spawn_blocking(move || krate.search_line(&query)).await?
+    }
+
+    /// Reads the content of a file within a specified GitHub repository.
+    ///
+    /// # Arguments
+    /// * `repo` - A reference to `Repository` specifying the GitHub repository.
+    /// * `path` - A `&str` specifying the file path.
+    ///
+    /// # Returns
+    /// A `Result` wrapping a `String`, or an error if the operation fails.
+    pub async fn read_github_repository_file(
+        &self,
+        repo: &Repository,
+        path: &str,
+    ) -> anyhow::Result<Option<FileContent>> {
+        self.github.get_file(repo, path).await
+    }
+
+    pub async fn read_github_repository_directory(
+        &self,
+        repo: &Repository,
+        path: &str,
+    ) -> anyhow::Result<Option<Directory>> {
+        self.github.read_dir(repo, path).await
     }
 }
