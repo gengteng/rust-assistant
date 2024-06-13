@@ -583,7 +583,7 @@ Schema:
         "deprecated": false
       }
     },
-    "/api/github/directory/{crate}/{version}/{path}": {
+    "/api/github/directory/{owner}/{repo}/{path}": {
       "get": {
         "description": "Read a subdirectory in a GitHub repository.",
         "operationId": "ReadGithubRepositorySubdirectory",
@@ -619,7 +619,7 @@ Schema:
         "deprecated": false
       }
     },
-    "/api/github/file/{crate}/{version}/{path}": {
+    "/api/github/file/{owner}/{repo}/{path}": {
       "get": {
         "description": "Read the content of a file in a GitHub repository.",
         "operationId": "ReadGithubRepositoryFile",

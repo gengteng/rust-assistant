@@ -1,6 +1,6 @@
 [package]
 name = "rust-assistant"
-version = "0.2.1"
+version = "0.3.0"
 description = "Rust Assistant Library."
 authors = ["GengTeng <me@gteng.org>"]
 license = "GPL-3.0"
