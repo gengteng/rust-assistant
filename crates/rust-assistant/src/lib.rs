@@ -46,6 +46,7 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 pub use app::*;
+pub use github::*;
 pub use search::*;
 
 /// Represents the name and version of a crate.

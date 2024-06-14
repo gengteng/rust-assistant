@@ -3,7 +3,7 @@
 use crate::app::RustAssistant;
 use crate::cache::{CrateCache, FileContent, FileDataType};
 use crate::download::CrateDownloader;
-use crate::github::{GithubClient, Repository, RepositoryPath};
+use crate::github::{GithubClient, IssueQuery, Repository, RepositoryIssue, RepositoryPath};
 use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
@@ -280,6 +280,61 @@ pub async fn read_github_repository_file_content(
     }
 }
 
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/issue/{owner}/{repo}", responses(
+        (status = 200, description = "Get issue list successfully.", body = [Issue]),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+            ("query" = String, Query, description = "Query string."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn search_github_repository_for_issues(
+    Path(repository): Path<Repository>,
+    Query(query): Query<IssueQuery>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .search_github_repository_for_issues(&repository, query.as_ref())
+        .await
+    {
+        Ok(issues) => Json(issues).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/issue/{owner}/{repo}/{number}", responses(
+        (status = 200, description = "Get issue timeline successfully.", body = [IssueEvent]),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+            ("number" = u64, Path, description = "The issue number."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn get_github_repository_issue_timeline(
+    Path(repository_issue): Path<RepositoryIssue>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state
+        .get_github_repository_issue_timeline(&repository_issue.repo, repository_issue.number)
+        .await
+    {
+        Ok(timeline) => Json(timeline).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
 /// Health check endpoint.
 ///
 /// This endpoint is used to perform a health check of the API, ensuring that it is running and responsive.
@@ -345,6 +400,12 @@ pub fn router(
                 .route(
                     "/file/:owner/:repo/*path",
                     get(read_github_repository_file_content),
+                )
+                .nest(
+                    "/issue/:owner/:repo",
+                    Router::new()
+                        .route("/", get(search_github_repository_for_issues))
+                        .route("/:number", get(get_github_repository_issue_timeline)),
                 ),
         )
         .with_state(RustAssistant::from((
@@ -458,9 +519,11 @@ mod swagger_ui {
         super::read_github_repository_root_directory,
         super::read_github_repository_directory,
         super::read_github_repository_file_content,
+        super::search_github_repository_for_issues,
+        super::get_github_repository_issue_timeline,
     ),
     components(
-        schemas(crate::Directory, crate::Item, crate::ItemType, crate::SearchMode, crate::Line, crate::RangeSchema)
+        schemas(crate::Directory, crate::Item, crate::ItemType, crate::SearchMode, crate::Line, crate::RangeSchema, crate::Actor, crate::Author, crate::Issue, crate::IssueEvent)
     ),
     modifiers(&SecurityAddon),
     tags(

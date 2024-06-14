@@ -7,7 +7,7 @@
 //!
 use crate::cache::{Crate, CrateCache, CrateTar, FileContent};
 use crate::download::CrateDownloader;
-use crate::github::{GithubClient, Repository};
+use crate::github::{GithubClient, Issue, IssueEvent, Repository};
 use crate::{
     CrateVersion, CrateVersionPath, Directory, FileLineRange, Item, ItemQuery, Line, LineQuery,
 };
@@ -140,7 +140,8 @@ impl RustAssistant {
     /// * `path` - A `&str` specifying the file path.
     ///
     /// # Returns
-    /// A `Result` wrapping a `String`, or an error if the operation fails.
+    /// A `Result` wrapping a `FileContent`, or an error if the operation fails.
+    ///
     pub async fn read_github_repository_file(
         &self,
         repo: &Repository,
@@ -149,11 +150,54 @@ impl RustAssistant {
         self.github.get_file(repo, path).await
     }
 
+    /// Reads the content of a directory within a specified GitHub repository.
+    ///
+    /// # Arguments
+    /// * `repo` - A reference to `Repository` specifying the GitHub repository.
+    /// * `path` - A `&str` specifying the directory path.
+    ///
+    /// # Returns
+    /// A `Result` wrapping a `Directory`, or an error if the operation fails.
+    ///
     pub async fn read_github_repository_directory(
         &self,
         repo: &Repository,
         path: &str,
     ) -> anyhow::Result<Option<Directory>> {
         self.github.read_dir(repo, path).await
+    }
+
+    /// Searches for issues in a specified GitHub repository based on a query.
+    ///
+    /// # Arguments
+    /// * `repo` - A reference to `Repository` specifying the GitHub repository.
+    /// * `query` - A `&str` specifying the query string.
+    ///
+    /// # Returns
+    /// A `Result` wrapping a `Vec<Issue>`, or an error if the operation fails.
+    ///
+    pub async fn search_github_repository_for_issues(
+        &self,
+        repo: &Repository,
+        query: &str,
+    ) -> anyhow::Result<Vec<Issue>> {
+        self.github.search_for_issues(repo, query).await
+    }
+
+    /// Retrieves the timeline of an issue in a specified GitHub repository.
+    ///
+    /// # Arguments
+    /// * `repo` - A reference to `Repository` specifying the GitHub repository.
+    /// * `issue_number` - A `u64` specifying the issue number.
+    ///
+    /// # Returns
+    /// A `Result` wrapping a `Vec<IssueEvent>`, or an error if the operation fails.
+    ///
+    pub async fn get_github_repository_issue_timeline(
+        &self,
+        repo: &Repository,
+        issue_number: u64,
+    ) -> anyhow::Result<Vec<IssueEvent>> {
+        self.github.get_issue_timeline(repo, issue_number).await
     }
 }
