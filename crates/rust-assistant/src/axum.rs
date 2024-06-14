@@ -280,6 +280,8 @@ pub async fn read_github_repository_file_content(
     }
 }
 
+/// Search for issues in a GitHub repository.
+///
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/github/issue/{owner}/{repo}", responses(
         (status = 200, description = "Get issue list successfully.", body = [Issue]),
@@ -308,6 +310,7 @@ pub async fn search_github_repository_for_issues(
     }
 }
 
+/// Get the timeline of an issue in a GitHub repository.
 #[cfg_attr(feature = "utoipa",
     utoipa::path(get, path = "/api/github/issue/{owner}/{repo}/{number}", responses(
         (status = 200, description = "Get issue timeline successfully.", body = [IssueEvent]),
