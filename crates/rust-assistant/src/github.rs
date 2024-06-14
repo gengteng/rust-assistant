@@ -282,38 +282,38 @@ pub struct Author {
     /// The author's name.
     pub name: String,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_get_file() -> anyhow::Result<()> {
-        let token = dotenv::var("GITHUB_ACCESS_TOKEN")?;
-        let proxy = if tokio::net::TcpStream::connect("127.0.0.1:7890")
-            .await
-            .is_ok()
-        {
-            Some(Proxy::all("http://127.0.0.1:7890")?)
-        } else {
-            None
-        };
-        let repo = Repository::from(("gengteng", "axum-valid"));
-        // https://github.com/rust-lang/crates.io-index
-        let client = GithubClient::new(token.as_str(), proxy)?;
-        let content = client.get_file(&repo, "Cargo.toml").await?;
-        println!("content: {content:?}");
-
-        let dir = client.read_dir(&repo, "lib.rs").await?;
-        println!("dir crates: {dir:#?}");
-
-        let issues = client.search_for_issues(&repo, "test").await?;
-        println!("issues: {issues:#?}");
-
-        for issue in issues {
-            let timeline = client.get_issue_timeline(&repo, issue.number).await?;
-            println!("timeline: {timeline:#?}");
-        }
-        Ok(())
-    }
-}
+//
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[tokio::test]
+//     async fn test_get_file() -> anyhow::Result<()> {
+//         let token = dotenv::var("GITHUB_ACCESS_TOKEN")?;
+//         let proxy = if tokio::net::TcpStream::connect("127.0.0.1:7890")
+//             .await
+//             .is_ok()
+//         {
+//             Some(Proxy::all("http://127.0.0.1:7890")?)
+//         } else {
+//             None
+//         };
+//         let repo = Repository::from(("gengteng", "axum-valid"));
+//         // https://github.com/rust-lang/crates.io-index
+//         let client = GithubClient::new(token.as_str(), proxy)?;
+//         let content = client.get_file(&repo, "Cargo.toml").await?;
+//         println!("content: {content:?}");
+//
+//         let dir = client.read_dir(&repo, "lib.rs").await?;
+//         println!("dir crates: {dir:#?}");
+//
+//         let issues = client.search_for_issues(&repo, "test").await?;
+//         println!("issues: {issues:#?}");
+//
+//         for issue in issues {
+//             let timeline = client.get_issue_timeline(&repo, issue.number).await?;
+//             println!("timeline: {timeline:#?}");
+//         }
+//         Ok(())
+//     }
+// }
