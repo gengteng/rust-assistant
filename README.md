@@ -655,6 +655,78 @@ Schema:
         "deprecated": false
       }
     },
+    "/api/github/issue/{owner}/{repo}": {
+      "get": {
+        "description": "Search for issues in a GitHub repository.",
+        "operationId": "SearchGithubRepositoryForIssues",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "description": "The owner of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "description": "The name of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "The search string used to find matches within the issues.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/api/github/issue/{owner}/{repo}/{number}": {
+      "get": {
+        "description": "Get the timeline of an issue in a GitHub repository.",
+        "operationId": "GetGitHubIssueTimeline",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "description": "The owner of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "description": "The name of the GitHub repository.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "The issue number.",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/api/items/{crate}/{version}": {
       "get": {
         "description": "Enables efficient but not comprehensive search of code items like structs, enums, traits, and more in a specific crate version, providing documentation for the found items using an index-based approach. Note: Searches don't include items defined within macros.",
