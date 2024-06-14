@@ -253,33 +253,6 @@ Schema:
         "deprecated": false
       }
     },
-    "/api/v1/crates/{crate}/{version}/readme": {
-      "get": {
-        "description": "Retrieve the README for the specified version of a crate based on the crate name and its semantic versioning.",
-        "operationId": "GetCrateVersionReadme",
-        "parameters": [
-          {
-            "name": "crate",
-            "in": "path",
-            "description": "The exact name of the crate.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "version",
-            "in": "path",
-            "description": "The semantic version number of the specified crate, following the Semantic versioning specification.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "deprecated": false
-      }
-    },
     "/api/v1/crates/{crate}/owner_user": {
       "get": {
         "description": "Query the list of owner users for a crate.",
