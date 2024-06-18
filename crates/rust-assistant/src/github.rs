@@ -24,6 +24,21 @@ pub struct Repository {
     pub repo: Arc<str>,
 }
 
+/// A struct representing a GitHub branch.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Branch {
+    /// The name of the branch.
+    pub branch: Option<String>,
+}
+
+impl Branch {
+    /// Returns the branch name as a string slice.
+    ///
+    pub fn as_str(&self) -> Option<&str> {
+        self.branch.as_deref()
+    }
+}
+
 /// A struct representing a GitHub repository and a path within it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepositoryPath {
@@ -98,10 +113,14 @@ impl GithubClient {
         &self,
         repo: &Repository,
         path: &str,
+        branch: impl Into<Option<&str>>,
     ) -> anyhow::Result<Option<FileContent>> {
         let file_path = self.build_file_url(repo, path);
-
-        let resp = self.client.get(file_path).send().await?;
+        let mut builder = self.client.get(file_path);
+        if let Some(branch) = branch.into() {
+            builder = builder.query(&[("ref", branch)]);
+        }
+        let resp = builder.send().await?;
         let status = resp.status();
         if status == StatusCode::NOT_FOUND {
             return Ok(None);
@@ -136,9 +155,14 @@ impl GithubClient {
         &self,
         repo: &Repository,
         path: &str,
+        branch: impl Into<Option<&str>>,
     ) -> anyhow::Result<Option<Directory>> {
         let file_path = self.build_file_url(repo, path);
-        let resp = self.client.get(file_path).send().await?;
+        let mut builder = self.client.get(file_path);
+        if let Some(branch) = branch.into() {
+            builder = builder.query(&[("ref", branch)]);
+        }
+        let resp = builder.send().await?;
         let status = resp.status();
         if status == StatusCode::NOT_FOUND {
             return Ok(None);
@@ -197,6 +221,7 @@ impl GithubClient {
         Ok(body.items)
     }
 
+    /// Get the timeline of an issue.
     pub async fn get_issue_timeline(
         &self,
         Repository { owner, repo }: &Repository,
@@ -219,6 +244,30 @@ impl GithubClient {
 
         let body = resp.json::<Vec<IssueEvent>>().await?;
         Ok(body)
+    }
+
+    /// Get the branches of a repository.
+    pub async fn get_repo_branches(
+        &self,
+        Repository { owner, repo }: &Repository,
+    ) -> anyhow::Result<Vec<String>> {
+        #[derive(Deserialize, Debug)]
+        struct Branch {
+            name: String,
+        }
+
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/branches",);
+        let resp = self.client.get(url).send().await?;
+        let status = resp.status();
+        if status != StatusCode::OK {
+            anyhow::bail!(
+                "The server returned a non-200 status code when fetching the file download URL ({status}): {}",
+                resp.text().await?
+            );
+        }
+
+        let body = resp.json::<Vec<Branch>>().await?;
+        Ok(body.into_iter().map(|b| b.name).collect())
     }
 }
 
@@ -282,38 +331,41 @@ pub struct Author {
     /// The author's name.
     pub name: String,
 }
-//
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[tokio::test]
-//     async fn test_get_file() -> anyhow::Result<()> {
-//         let token = dotenv::var("GITHUB_ACCESS_TOKEN")?;
-//         let proxy = if tokio::net::TcpStream::connect("127.0.0.1:7890")
-//             .await
-//             .is_ok()
-//         {
-//             Some(Proxy::all("http://127.0.0.1:7890")?)
-//         } else {
-//             None
-//         };
-//         let repo = Repository::from(("gengteng", "axum-valid"));
-//         // https://github.com/rust-lang/crates.io-index
-//         let client = GithubClient::new(token.as_str(), proxy)?;
-//         let content = client.get_file(&repo, "Cargo.toml").await?;
-//         println!("content: {content:?}");
-//
-//         let dir = client.read_dir(&repo, "lib.rs").await?;
-//         println!("dir crates: {dir:#?}");
-//
-//         let issues = client.search_for_issues(&repo, "test").await?;
-//         println!("issues: {issues:#?}");
-//
-//         for issue in issues {
-//             let timeline = client.get_issue_timeline(&repo, issue.number).await?;
-//             println!("timeline: {timeline:#?}");
-//         }
-//         Ok(())
-//     }
-// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_file() -> anyhow::Result<()> {
+        let token = dotenv::var("GITHUB_ACCESS_TOKEN")?;
+        let proxy = if tokio::net::TcpStream::connect("127.0.0.1:7890")
+            .await
+            .is_ok()
+        {
+            Some(Proxy::all("http://127.0.0.1:7890")?)
+        } else {
+            None
+        };
+        let repo = Repository::from(("gengteng", "rust-assistant"));
+        // https://github.com/rust-lang/crates.io-index
+        let client = GithubClient::new(token.as_str(), proxy)?;
+        let content = client.get_file(&repo, "Cargo.toml", "fff").await?;
+        println!("content: {content:?}");
+
+        let dir = client.read_dir(&repo, "crates", None).await?;
+        println!("dir crates: {dir:#?}");
+
+        let issues = client.search_for_issues(&repo, "test").await?;
+        println!("issues: {issues:#?}");
+
+        for issue in issues {
+            let timeline = client.get_issue_timeline(&repo, issue.number).await?;
+            println!("timeline: {timeline:#?}");
+        }
+
+        let branches = client.get_repo_branches(&repo).await?;
+        println!("branches: {branches:#?}");
+        Ok(())
+    }
+}

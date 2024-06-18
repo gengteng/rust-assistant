@@ -4,7 +4,7 @@ use crate::app::RustAssistant;
 use crate::cache::{CrateCache, FileContent, FileDataType};
 use crate::download::CrateDownloader;
 use crate::github::{GithubClient, IssueQuery, Repository, RepositoryIssue, RepositoryPath};
-use crate::{CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
+use crate::{Branch, CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -195,6 +195,7 @@ pub async fn read_crate_root_directory(
         params(
             ("owner" = String, Path, description = "The owner of the GitHub repository."),
             ("repo" = String, Path, description = "The name of the GitHub repository."),
+            ("branch" = Option<String>, Query, description = "The branch name."),
         ),
         security(
             ("api_auth" = [])
@@ -202,10 +203,11 @@ pub async fn read_crate_root_directory(
     ))]
 pub async fn read_github_repository_root_directory(
     Path(repository): Path<Repository>,
+    Query(branch): Query<Branch>,
     State(state): State<RustAssistant>,
 ) -> impl IntoResponse {
     match state
-        .read_github_repository_directory(&repository, "")
+        .read_github_repository_directory(&repository, "", branch.as_str())
         .await
     {
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
@@ -228,6 +230,7 @@ pub async fn read_github_repository_root_directory(
             ("owner" = String, Path, description = "The owner of the GitHub repository."),
             ("repo" = String, Path, description = "The name of the GitHub repository."),
             ("path" = String, Path, description = "Relative path of a directory in repository."),
+            ("branch" = Option<String>, Query, description = "The branch name."),
         ),
         security(
             ("api_auth" = [])
@@ -235,10 +238,15 @@ pub async fn read_github_repository_root_directory(
     ))]
 pub async fn read_github_repository_directory(
     Path(repository_path): Path<RepositoryPath>,
+    Query(branch): Query<Branch>,
     State(state): State<RustAssistant>,
 ) -> impl IntoResponse {
     match state
-        .read_github_repository_directory(&repository_path.repo, repository_path.path.as_ref())
+        .read_github_repository_directory(
+            &repository_path.repo,
+            repository_path.path.as_ref(),
+            branch.as_str(),
+        )
         .await
     {
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
@@ -261,6 +269,7 @@ pub async fn read_github_repository_directory(
             ("owner" = String, Path, description = "The owner of the GitHub repository."),
             ("repo" = String, Path, description = "The name of the GitHub repository."),
             ("path" = String, Path, description = "Relative path of a file in repository."),
+            ("branch" = Option<String>, Query, description = "The branch name."),
         ),
         security(
             ("api_auth" = [])
@@ -268,10 +277,15 @@ pub async fn read_github_repository_directory(
     ))]
 pub async fn read_github_repository_file_content(
     Path(repository_path): Path<RepositoryPath>,
+    Query(branch): Query<Branch>,
     State(state): State<RustAssistant>,
 ) -> impl IntoResponse {
     match state
-        .read_github_repository_file(&repository_path.repo, repository_path.path.as_ref())
+        .read_github_repository_file(
+            &repository_path.repo,
+            repository_path.path.as_ref(),
+            branch.as_str(),
+        )
         .await
     {
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
@@ -334,6 +348,30 @@ pub async fn get_github_repository_issue_timeline(
         .await
     {
         Ok(timeline) => Json(timeline).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    }
+}
+
+/// Get the branches of a GitHub repository.
+#[cfg_attr(feature = "utoipa",
+    utoipa::path(get, path = "/api/github/branches/{owner}/{repo}", responses(
+        (status = 200, description = "Get repository branches successfully.", body = [String]),
+        (status = 500, description = "Internal server error.", body = String),
+    ),
+        params(
+            ("owner" = String, Path, description = "The owner of the GitHub repository."),
+            ("repo" = String, Path, description = "The name of the GitHub repository."),
+        ),
+        security(
+            ("api_auth" = [])
+        )
+    ))]
+pub async fn get_github_repository_branches(
+    Path(repository): Path<Repository>,
+    State(state): State<RustAssistant>,
+) -> impl IntoResponse {
+    match state.get_github_repository_branches(&repository).await {
+        Ok(branches) => Json(branches).into_response(),
         Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
     }
 }
@@ -409,6 +447,10 @@ pub fn router(
                     Router::new()
                         .route("/", get(search_github_repository_for_issues))
                         .route("/:number", get(get_github_repository_issue_timeline)),
+                )
+                .route(
+                    "/branches/:owner/:repo",
+                    get(get_github_repository_branches),
                 ),
         )
         .with_state(RustAssistant::from((
@@ -524,6 +566,7 @@ mod swagger_ui {
         super::read_github_repository_file_content,
         super::search_github_repository_for_issues,
         super::get_github_repository_issue_timeline,
+        super::get_github_repository_branches,
     ),
     components(
         schemas(crate::Directory, crate::Item, crate::ItemType, crate::SearchMode, crate::Line, crate::RangeSchema, crate::Actor, crate::Author, crate::Issue, crate::IssueEvent)

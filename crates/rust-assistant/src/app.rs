@@ -138,6 +138,7 @@ impl RustAssistant {
     /// # Arguments
     /// * `repo` - A reference to `Repository` specifying the GitHub repository.
     /// * `path` - A `&str` specifying the file path.
+    /// * `branch` - An optional `&str` specifying the branch name.
     ///
     /// # Returns
     /// A `Result` wrapping a `FileContent`, or an error if the operation fails.
@@ -146,8 +147,9 @@ impl RustAssistant {
         &self,
         repo: &Repository,
         path: &str,
+        branch: impl Into<Option<&str>>,
     ) -> anyhow::Result<Option<FileContent>> {
-        self.github.get_file(repo, path).await
+        self.github.get_file(repo, path, branch).await
     }
 
     /// Reads the content of a directory within a specified GitHub repository.
@@ -155,6 +157,7 @@ impl RustAssistant {
     /// # Arguments
     /// * `repo` - A reference to `Repository` specifying the GitHub repository.
     /// * `path` - A `&str` specifying the directory path.
+    /// * `branch` - An optional `&str` specifying the branch name.
     ///
     /// # Returns
     /// A `Result` wrapping a `Directory`, or an error if the operation fails.
@@ -163,8 +166,9 @@ impl RustAssistant {
         &self,
         repo: &Repository,
         path: &str,
+        branch: impl Into<Option<&str>>,
     ) -> anyhow::Result<Option<Directory>> {
-        self.github.read_dir(repo, path).await
+        self.github.read_dir(repo, path, branch).await
     }
 
     /// Searches for issues in a specified GitHub repository based on a query.
@@ -199,5 +203,14 @@ impl RustAssistant {
         issue_number: u64,
     ) -> anyhow::Result<Vec<IssueEvent>> {
         self.github.get_issue_timeline(repo, issue_number).await
+    }
+
+    /// Retrieves the branches of a specified GitHub repository.
+    ///
+    pub async fn get_github_repository_branches(
+        &self,
+        repo: &Repository,
+    ) -> anyhow::Result<Vec<String>> {
+        self.github.get_repo_branches(repo).await
     }
 }
