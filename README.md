@@ -416,7 +416,7 @@ Schema:
   },
   "servers": [
     {
-      "url": "https://rust-assistant-shuttle.shuttleapp.rs/"
+      "url": "https://rust-assistant-shuttle.shuttleapp.rs"
     }
   ],
   "paths": {
