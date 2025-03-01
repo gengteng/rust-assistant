@@ -1,6 +1,6 @@
 [package]
 name = "rust-assistant"
-version = "0.5.0"
+version = "0.6.0"
 description = "Rust Assistant Library."
 authors = ["GengTeng <me@gteng.org>"]
 license = "GPL-3.0"
@@ -32,8 +32,8 @@ fnv = "1.0.7"
 
 axum = { workspace = true, optional = true }
 axum-extra = { workspace = true, features = ["typed-header"], optional = true }
-utoipa = { version = "4.2.0", features = ["axum_extras"], optional = true }
-utoipa-swagger-ui = { version = "7.1.0", features = ["axum"], optional = true }
+utoipa = { version = "5.3.1", features = ["axum_extras"], optional = true }
+utoipa-swagger-ui = { version = "9.0.0", features = ["axum"], optional = true }
 quote = "1.0.35"
 regex = "1.10.2"
 base64 = "0.22.1"

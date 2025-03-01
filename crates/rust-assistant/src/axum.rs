@@ -4,7 +4,10 @@ use crate::app::RustAssistant;
 use crate::cache::{CrateCache, FileContent, FileDataType};
 use crate::download::CrateDownloader;
 use crate::github::{GithubClient, IssueQuery, Repository, RepositoryIssue, RepositoryPath};
-use crate::{Branch, CrateVersion, CrateVersionPath, FileLineRange, ItemQuery, LineQuery};
+use crate::{
+    Branch, CrateVersion, CrateVersionPath, Directory, FileLineRange, Issue, IssueEvent, Item,
+    ItemQuery, ItemType, Line, LineQuery, SearchMode,
+};
 use axum::extract::{FromRequestParts, Path, Query, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -525,7 +528,6 @@ where
 ///
 pub struct RequireAuth;
 
-#[axum::async_trait]
 impl FromRequestParts<()> for RequireAuth {
     type Rejection = Response;
 

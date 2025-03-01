@@ -182,6 +182,7 @@ pub struct ItemQuery {
     /// The query string used for searching.
     pub query: String,
     /// Optional path within the crate to narrow down the search scope.
+    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
     pub path: Option<PathBuf>,
 }
 
