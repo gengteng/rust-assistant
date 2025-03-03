@@ -2,3 +2,5 @@
 /.idea
 Secrets.toml
 **/.env
+.shuttle*
+Secrets*.toml
