@@ -423,36 +423,36 @@ pub fn router(
     };
 
     let api = Router::new()
-        .route("/lines/:crate/:version", get(search_crate_for_lines))
-        .route("/items/:crate/:version", get(search_crate_for_items))
-        .route("/file/:crate/:version/*path", get(get_file_content))
+        .route("/lines/{crate}/{version}", get(search_crate_for_lines))
+        .route("/items/{crate}/{version}", get(search_crate_for_items))
+        .route("/file/{crate}/{version}/{*path}", get(get_file_content))
         .nest(
-            "/directory/:crate/:version",
+            "/directory/{crate}/{version}",
             Router::new()
                 .route("/", get(read_crate_root_directory))
-                .route("/*path", get(read_crate_directory)),
+                .route("/{*path}", get(read_crate_directory)),
         )
         .nest(
             "/github",
             Router::new()
                 .nest(
-                    "/directory/:owner/:repo",
+                    "/directory/{owner}/{repo}",
                     Router::new()
                         .route("/", get(read_github_repository_root_directory))
-                        .route("/*path", get(read_github_repository_directory)),
+                        .route("/{*path}", get(read_github_repository_directory)),
                 )
                 .route(
-                    "/file/:owner/:repo/*path",
+                    "/file/{owner}/{repo}/{*path}",
                     get(read_github_repository_file_content),
                 )
                 .nest(
-                    "/issue/:owner/:repo",
+                    "/issue/{owner}/{repo}",
                     Router::new()
                         .route("/", get(search_github_repository_for_issues))
-                        .route("/:number", get(get_github_repository_issue_timeline)),
+                        .route("/{number}", get(get_github_repository_issue_timeline)),
                 )
                 .route(
-                    "/branches/:owner/:repo",
+                    "/branches/{owner}/{repo}",
                     get(get_github_repository_branches),
                 ),
         )
